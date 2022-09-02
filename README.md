@@ -1,12 +1,20 @@
 # homeserver
 docker-compose based home server
 included services:
-Heimdall - hompage dashboard
-Sonarr - Tv show tracker and downloader
-Radarr - Movie tracker and downloader
-Jackett - Torrent indexer for Sonarr and Radarr
-Transmission - Torrent client
-Yacht - Docker container manager
+- Heimdall - hompage dashboard
+- Sonarr - Tv show tracker and downloader
+- Radarr - Movie tracker and downloader
+- Bazzar - Subtitle auto downloader
+- Jackett - Torrent indexer for Sonarr and Radarr
+- Jellyfin - Movie and Tv show server
+- Lidarr - Music tracker and downloader
+- Deemix - Deezer downloader (Lidar download client, and indexer)
+- Navidrome - Music server 
+- Transmission - Torrent client
+- Yacht - Docker container manager
+- Swag - Reverse proxy and ssl cert manager
+- Duckdns - public ip auto-update 
+- Homeassistant - home automation
 
 ## General docker-compose command reminder
 

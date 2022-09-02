@@ -30,6 +30,36 @@ services:
       - '${DATA}/radarr:/config'
       - '${MEDIA}/Filmovi:/movies'
       - '${MEDIA}/Downloads:/downloads'
+  lidarr:
+    container_name: lidarr
+    image: youegraillot/lidarr-on-steroids
+    restart: unless-stopped
+    ports:
+      - "8686:8686" # Lidarr web UI
+      - "6595:6595" # Deemix web UI
+    environment:
+      - 'PUID=${UID}'
+      - 'PGID=${GID}'
+      - 'TZ=${TZ}'
+    volumes:
+      - '${DATA}/lidarr:/config'
+      - '${DATA}/deemix:/config_deemix'
+      - '${MEDIA}/Downloads/lidarr:/downloads'
+      - '${MEDIA}/Music:/music'
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - 'PUID=${UID}'
+      - 'PGID=${GID}'
+      - 'TZ=${TZ}'
+    volumes:
+      - '${DATA}/bazarr/config:/config'
+      - '${MEDIA}/Filmovi:/movies' #optional
+      - '${MEDIA}/Serije:/tv' #optional
+    ports:
+      - 6767:6767
+    restart: unless-stopped
   jackett:
     container_name: jackett
     image: 'linuxserver/jackett:latest'
@@ -53,7 +83,7 @@ services:
     volumes:
       - '${DATA}/heimdall:/config'
     ports:
-      - '8081:80'
+      - '8080:80'
       - '8443:443'
     restart: unless-stopped
   transmission:
@@ -96,3 +126,82 @@ services:
       - '${MEDIA}/Filmovi:/data/movies'
       - '${MEDIA}/Serije:/data/tvshows'
     restart: unless-stopped
+  navidrome:
+    image: deluan/navidrome:latest
+    container_name: navidrome 
+    user: 1000:1000
+    ports:
+      - '4533:4533'
+    restart: unless-stopped
+    environment:
+      # Optional: put your config options customization here. Examples:
+      ND_SCANSCHEDULE: 1h
+      ND_LOGLEVEL: info  
+      ND_SESSIONTIMEOUT: 24h
+      ND_BASEURL: ''
+    volumes:
+      - '${DATA}/navidrome:/data'
+      - '${MEDIA}/Music:/music:ro'
+  homeassistant:
+    image: lscr.io/linuxserver/homeassistant:latest
+    container_name: homeassistant
+    environment:
+      - 'PUID=${UID}'
+      - 'PGID=${GID}'
+      - 'TZ=${TZ}'
+    volumes:
+      - '${DATA}/homeassistant:/config'
+    ports:
+      - 8123:8123 #optional
+    restart: unless-stopped
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    container_name: duckdns
+    environment:
+      - 'PUID=${UID}'
+      - 'PGID=${GID}'
+      - 'TZ=${TZ}'
+      - 'SUBDOMAINS=${DUCKDNS_SUBDOMAINS}'
+      - 'TOKEN=${DUCKDNS_TOKEN}'
+      - LOG_FILE=false #optional
+    volumes:
+      - '${DATA}/duckdns:/config' #optional
+    restart: unless-stopped
+  swag:
+    image: lscr.io/linuxserver/swag
+    container_name: swag
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - 'PUID=${UID}'
+      - 'PGID=${GID}'
+      - 'TZ=${TZ}'
+      - 'URL=${DUCKDNS_URL}'
+      - SUBDOMAINS=wildcard
+      - VALIDATION=duckdns
+      - 'DUCKDNSTOKEN=${DUCKDNS_TOKEN}' 
+    volumes:
+      - '${DATA}/swag:/config'
+    ports:
+      - 443:443
+      - 80:80
+    restart: unless-stopped
+#  pihole:
+#    container_name: pihole
+#    image: pihole/pihole:latest
+#    # For DHCP it is recommended to remove these ports and instead add: network_mode: "host"
+#    ports:
+#      - "53:53/tcp"
+#      - "53:53/udp"
+#      - "80:80/tcp"
+#    environment:
+#      - 'TZ=${TZ}'
+#       # WEBPASSWORD: 'set a secure password here or it will be random'
+#    # Volumes store your data between container upgrades
+#    volumes:
+#      - '${DATA}/pihole/etc:/etc/pihole'
+#      - '${DATA}/pihole/etc-dnsmasq.d:/etc/dnsmasq.d'    
+#    #   https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
+#    cap_add:
+#      - NET_ADMIN # Recommended but not required (DHCP needs NET_ADMIN)      
+#    restart: unless-stopped
