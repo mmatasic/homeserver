@@ -125,6 +125,7 @@ services:
       - '${DATA}/jellyfin/cache:/cache'
       - '${MEDIA}/Filmovi:/data/movies'
       - '${MEDIA}/Serije:/data/tvshows'
+      - '${MEDIA}/Music:/data/music'
     restart: unless-stopped
   navidrome:
     image: deluan/navidrome:latest
