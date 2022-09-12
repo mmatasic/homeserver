@@ -1,2 +1,16 @@
 .env
-*/
+deemix/
+bazarr/
+duckdns/
+heimdall/
+homeassistant/
+jackett/
+jellyfin/
+lidarr/
+navidrome/
+pihole/
+radarr/
+sonarr/
+swag/
+transmission/
+yacht/

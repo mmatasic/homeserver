@@ -126,6 +126,11 @@ services:
       - '${MEDIA}/Filmovi:/data/movies'
       - '${MEDIA}/Serije:/data/tvshows'
       - '${MEDIA}/Music:/data/music'
+      - '${MEDIA}/Crtici:/data/kids'
+    devices:
+      # VAAPI Devices (examples)
+      - /dev/dri/renderD128:/dev/dri/renderD128
+      - /dev/dri/card0:/dev/dri/card0
     restart: unless-stopped
   navidrome:
     image: deluan/navidrome:latest
@@ -140,6 +145,9 @@ services:
       ND_LOGLEVEL: info  
       ND_SESSIONTIMEOUT: 24h
       ND_BASEURL: ''
+      ND_ENABLETRANSCODINGCONFIG: "true"
+      ND_TRANSCODINGCACHESIZE: "200MB"
+      ND_DEFAULTTHEME: "Spotify-ish"
     volumes:
       - '${DATA}/navidrome:/data'
       - '${MEDIA}/Music:/music:ro'
@@ -187,22 +195,23 @@ services:
       - 443:443
       - 80:80
     restart: unless-stopped
-#  pihole:
-#    container_name: pihole
-#    image: pihole/pihole:latest
-#    # For DHCP it is recommended to remove these ports and instead add: network_mode: "host"
-#    ports:
-#      - "53:53/tcp"
-#      - "53:53/udp"
-#      - "80:80/tcp"
-#    environment:
-#      - 'TZ=${TZ}'
-#       # WEBPASSWORD: 'set a secure password here or it will be random'
-#    # Volumes store your data between container upgrades
-#    volumes:
-#      - '${DATA}/pihole/etc:/etc/pihole'
-#      - '${DATA}/pihole/etc-dnsmasq.d:/etc/dnsmasq.d'    
-#    #   https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
-#    cap_add:
-#      - NET_ADMIN # Recommended but not required (DHCP needs NET_ADMIN)      
-#    restart: unless-stopped
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "8081:80/tcp"
+      - "8444:443/tcp"
+    environment:
+      - 'TZ=${TZ}'
+      - 'WEBPASSWORD=${PIHOLE_WEBPASSWORD}'
+      - 'SERVERIP=${PIHOLE_HOST_SERVERIP}'
+      - 'FTLCONF_LOCAL_IPV4=${PIHOLE_HOST_SERVERIP}'
+    volumes:
+       - '${DATA}/pihole/etc-pihole/:/etc/pihole/'
+       - '${DATA}/pihole/etc-dnsmasq.d/:/etc/dnsmasq.d/'
+    dns:
+      - 127.0.0.1
+      - 1.1.1.1
+    restart: unless-stopped
