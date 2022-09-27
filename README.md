@@ -15,6 +15,7 @@ included services:
 - Swag - Reverse proxy and ssl cert manager
 - Duckdns - public ip auto-update 
 - Homeassistant - home automation
+- Beets - music library management tool
 
 ## General docker-compose command reminder
 

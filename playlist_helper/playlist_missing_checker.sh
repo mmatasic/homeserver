@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python3 playlist_missing_checker.py /mnt/data/Music/
+python3 playlist_missing_checker.py "$1"

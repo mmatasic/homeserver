@@ -1,0 +1,101 @@
+plugins: fetchart embedart convert scrub replaygain lastgenre chroma web duplicates acousticbrainz smartplaylist
+directory: /music
+library: /music/beetsmusiclibrary.blb
+replace:
+    '[\\/]': _
+    '^\.': _
+    '[\x00-\x1f]': _
+    '[<>:"\?\*\|]': _
+    '\.$': _
+    '\s+$': ''
+    '^\s+': ''
+    '^-': _
+art_filename: cover 
+threaded: yes
+original_date: no 
+per_disc_numbering: no
+clutter: 
+         - "Thumbs.DB"
+         - ".DS_Store"
+         - "*.m3u"
+         - "*.m3u8"
+         - ".pls"
+         - "*.jpg"
+         - "*.jpeg"
+         - "*.gif"
+         - "*.nfo"
+         - "*.txt"
+         - "*.png"
+         - "*.ini"
+
+convert:
+    auto: no
+    ffmpeg: /usr/bin/ffmpeg
+    opts: -ab 320k -ac 2 -ar 48000
+    max_bitrate: 320
+    threads: 2
+    
+paths:
+    default: $albumartist/$album%aunique{} ($year)/$track $title
+    singleton: Non-Album/$artist/$title
+    comp: Compilations/$album%aunique{}/$track $title
+    albumtype_soundtrack: Soundtracks/$album%aunique{}($year)/$track $title
+        
+import:
+    write: yes
+    copy: no
+    move: yes 
+    resume: ask
+    incremental_skip_later: yes
+    incremental: yes
+    quiet_fallback: skip
+    timid: no
+    log: /config/beet.log
+    match:
+        max_rec:
+            missing_tracks: none 
+        distance_weights:
+            missing_tracks: 0.0
+
+lastgenre:
+    auto: yes
+    source: album
+    count: 10
+    force: yes
+    separator: ","
+
+embedart:
+    auto: yes
+
+fetchart:
+    auto: yes
+    
+replaygain:
+    auto: no
+
+scrub:
+    auto: yes
+chroma:
+    auto: yes
+web:
+    host: 0.0.0.0
+    port: 8337
+acousticbrainz:
+    auto: yes
+smartplaylist:
+    relative_to: /music 
+    playlist_dir: /music
+    forward_slash: no
+    playlists:
+        - name: sve_domace.m3u8 
+          query: 'country::"HR|YU|SI|BA|RS|CS|MK" ^genre:Kids'
+        - name: auto_running_rock_150.m3u8
+          query: 'bpm:145..154  "genre::(rock|Rock|metal|Metal|Punk|punk)" moods_mirex:Cluster5' 
+        - name: auto_running_rock_160.m3u8
+          query: 'bpm:155..164  "genre::(rock|Rock|metal|Metal|Punk|punk)" moods_mirex:Cluster5' 
+        - name: auto_running_rock_170.m3u8
+          query: 'bpm:165..174  "genre::(rock|Rock|metal|Metal|Punk|punk)" moods_mirex:Cluster5' 
+        - name: auto_running_rock_180.m3u8
+          query: 'bpm:175..184  "genre::(rock|Rock|metal|Metal|Punk|punk)" moods_mirex:Cluster5' 
+        - name: auto_danceable_happy.m3u8
+          query: 'danceable:0.99.. mood_happy:0.9..'

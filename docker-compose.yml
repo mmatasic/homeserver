@@ -151,6 +151,20 @@ services:
     volumes:
       - '${DATA}/navidrome:/data'
       - '${MEDIA}/Music:/music:ro'
+  beets:
+   image: lscr.io/linuxserver/beets:latest
+   container_name: beets
+   environment:
+     - 'PUID=${UID}'
+     - 'PGID=${GID}'
+     - 'TZ=${TZ}'
+   volumes:
+     - '${DATA}/beets:/config'
+     - '${MEDIA}/Music:/music'
+     - '${MEDIA}/Downloads/lidarr/:/download'
+   ports:
+     - 8337:8337
+   restart: unless-stopped
   homeassistant:
     image: lscr.io/linuxserver/homeassistant:latest
     container_name: homeassistant

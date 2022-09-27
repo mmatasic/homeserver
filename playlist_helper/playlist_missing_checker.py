@@ -3,6 +3,7 @@ import subprocess
 import glob, os
 from os.path import exists
 import re
+import time
 
 def writeListToFile(location, filename, list, delimiter, mode):
     print("list:")
@@ -19,7 +20,9 @@ def writeListToFile(location, filename, list, delimiter, mode):
 
 def findAlternative(filename):
     print("searching for: " + filename)
-    p = subprocess.Popen("fdfind -iF " + "\"" + filename + "\"", stdout=subprocess.PIPE, shell=True, universal_newlines=True)
+    filename = filename.replace("’", ".{1}")
+    filename = filename.replace("'", ".{1}")
+    p = subprocess.Popen("fdfind --type file -i " + "\"" + filename + "\"", stdout=subprocess.PIPE, shell=True, universal_newlines=True)
     stdout, stderr = p.communicate();
     results = stdout.splitlines()
     if len(results) > 100:
@@ -44,11 +47,20 @@ def findAlternative(filename):
                  break;
     return results[selectedIndex]
 
+if not len(sys.argv) == 2:
+    print("no args found - path to playlist dir or playlist is needed")
+    print("usage python3 playlist_missing_checker.py path_to_folder_or_playlist]")
+    sys.exit(0)
 playlistDir = sys.argv[1]
-os.chdir(playlistDir);
 playlists = []
-for file in glob.glob("./*.m3u8"):
-    playlists.append(file)
+if os.path.isfile(playlistDir):
+    playlists.append(playlistDir)
+    playlistDir = os.path.dirname(playlistDir)
+    os.chdir(playlistDir)
+else:    
+    os.chdir(playlistDir);
+    for file in glob.glob("./*.m3u8"):
+        playlists.append(file)
 
 for pfile in playlists:
     playlistFile= open(pfile)
@@ -65,23 +77,30 @@ for pfile in playlists:
             print("file is missing: " + file)
             fileName=os.path.basename(file)
             fileNameWithoutExt=os.path.splitext(fileName)[0]
+            #removing parenthesis
+            fileNameWithoutExt = re.sub("\(.*?\)|\[.*?\]","",fileNameWithoutExt )
             splitNames = fileNameWithoutExt.split("-")
             songName = splitNames[len(splitNames)-1] 
-            #removing parenthesis
-            songName = re.sub("\(.*?\)|\[.*?\]","",songName)
-            alternative =  findAlternative(songName.strip())
-            if alternative:
-                outputLines.append(alternative.strip())
-            else:
-                print("didn't find alternative")
-                outputLines.append(' '.join(file.split()))
+            songName = re.sub("^[0-9 \s]+","",songName)
+            alternative = ""
+            while not alternative: 
+                alternative =  findAlternative(songName.strip())
+                if alternative:
+                    outputLines.append(alternative.strip())
+                else:
+                    print("didn't find alternative")
+                    songName =  input("manually enter file search string (enter $skip to skip): ")
+                    if(songName == "$skip"):
+                        outputLines.append(' '.join(file.split()))
+                        break
         else:
             print("OK - " + file)
             outputLines.append(' '.join(file.split()))
             continue
     playlistFile.close()
     # backup
-    os.rename(pfile.strip(), pfile.strip()+ ".bak")
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    os.rename(pfile.strip(), pfile.strip()+"."+timestr+ ".bak")
     writeListToFile(playlistDir, playlistFileName, outputLines, '\n', 'wt')
     print("done: " + playlistFileName)
 print("DONE")

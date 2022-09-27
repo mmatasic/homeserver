@@ -1,4 +1,9 @@
 .env
+beets/*.log*
+beets/.cache/*
+beets/.*history
+beets/beets.sh
+beets/*.pickle
 deemix/
 bazarr/
 duckdns/
