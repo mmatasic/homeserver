@@ -89,9 +89,11 @@ for pfile in playlists:
                     outputLines.append(alternative.strip())
                 else:
                     print("didn't find alternative")
-                    songName =  input("manually enter file search string (enter $skip to skip): ")
+                    songName =  input("manually enter file search string (enter $skip to skip, $del to delete): ")
                     if(songName == "$skip"):
                         outputLines.append(' '.join(file.split()))
+                        break
+                    elif(songName == "$del"):
                         break
         else:
             print("OK - " + file)

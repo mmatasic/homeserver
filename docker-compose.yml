@@ -30,22 +30,22 @@ services:
       - '${DATA}/radarr:/config'
       - '${MEDIA}/Filmovi:/movies'
       - '${MEDIA}/Downloads:/downloads'
-  lidarr:
-    container_name: lidarr
-    image: youegraillot/lidarr-on-steroids
-    restart: unless-stopped
-    ports:
-      - "8686:8686" # Lidarr web UI
-      - "6595:6595" # Deemix web UI
-    environment:
-      - 'PUID=${UID}'
-      - 'PGID=${GID}'
-      - 'TZ=${TZ}'
-    volumes:
-      - '${DATA}/lidarr:/config'
-      - '${DATA}/deemix:/config_deemix'
-      - '${MEDIA}/Downloads/lidarr:/downloads'
-      - '${MEDIA}/Music:/music'
+        #  lidarr:
+        #    container_name: lidarr
+        #    image: youegraillot/lidarr-on-steroids
+        #    restart: unless-stopped
+        #    ports:
+        #      - "8686:8686" # Lidarr web UI
+        #      - "6595:6595" # Deemix web UI
+        #    environment:
+        #      - 'PUID=${UID}'
+        #      - 'PGID=${GID}'
+        #      - 'TZ=${TZ}'
+        #    volumes:
+        #      - '${DATA}/lidarr:/config'
+        #      - '${DATA}/deemix:/config_deemix'
+        #      - '${MEDIA}/Downloads/lidarr:/downloads'
+        #      - '${MEDIA}/Music:/music'
   bazarr:
     image: lscr.io/linuxserver/bazarr:latest
     container_name: bazarr
@@ -97,20 +97,23 @@ services:
       - '${DATA}/transmission:/config'
       - '${MEDIA}/Downloads:/downloads'
       - '${MEDIA}/Downloads/transmission-watch:/watch'
+      - '${MEDIA}/AudioBooks:/audiobooks'
+      - '${MEDIA}/Serije:/tvshows'
+      - '${MEDIA}/Filmovi:/movies'
     ports:
       - '9091:9091'
       - '51413:51413'
       - '51313:51413/udp'
     restart: unless-stopped
-  yacht:
-    container_name: yacht
-    image: selfhostedpro/yacht
-    restart: unless-stopped
-    ports:
-      - '8000:8000'
-    volumes:
-      - '${DATA}/yacht:/config'
-      - '/var/run/docker.sock:/var/run/docker.sock'
+      #  yacht:
+      #    container_name: yacht
+      #    image: selfhostedpro/yacht
+      #    restart: unless-stopped
+      #    ports:
+      #      - '8000:8000'
+      #    volumes:
+      #      - '${DATA}/yacht:/config'
+      #      - '/var/run/docker.sock:/var/run/docker.sock'
   jellyfin:
     image: 'linuxserver/jellyfin:latest'
     container_name: jellyfin
@@ -127,6 +130,8 @@ services:
       - '${MEDIA}/Serije:/data/tvshows'
       - '${MEDIA}/Music:/data/music'
       - '${MEDIA}/Crtici:/data/kids'
+      - '${MEDIA}/Misc:/data/misc'
+      - '${MEDIA}/MusicVideos:/data/music-videos'
     devices:
       # VAAPI Devices (examples)
       - /dev/dri/renderD128:/dev/dri/renderD128
@@ -161,22 +166,22 @@ services:
    volumes:
      - '${DATA}/beets:/config'
      - '${MEDIA}/Music:/music'
-     - '${MEDIA}/Downloads/lidarr/:/download'
+     - '${MEDIA}/Downloads:/downloads'
    ports:
      - 8337:8337
    restart: unless-stopped
-  homeassistant:
-    image: lscr.io/linuxserver/homeassistant:latest
-    container_name: homeassistant
-    environment:
-      - 'PUID=${UID}'
-      - 'PGID=${GID}'
-      - 'TZ=${TZ}'
-    volumes:
-      - '${DATA}/homeassistant:/config'
-    ports:
-      - 8123:8123 #optional
-    restart: unless-stopped
+     #  homeassistant:
+     #    image: lscr.io/linuxserver/homeassistant:latest
+     #    container_name: homeassistant
+     #    environment:
+     #      - 'PUID=${UID}'
+     #      - 'PGID=${GID}'
+     #      - 'TZ=${TZ}'
+     #    volumes:
+     #      - '${DATA}/homeassistant:/config'
+     #    ports:
+     #      - 8123:8123 #optional
+     #    restart: unless-stopped
   duckdns:
     image: lscr.io/linuxserver/duckdns:latest
     container_name: duckdns
@@ -229,3 +234,53 @@ services:
       - 127.0.0.1
       - 1.1.1.1
     restart: unless-stopped
+  unbound:
+    container_name: unbound
+    image: mvance/unbound:latest
+    volumes:
+      - '${DATA}/unbound:/opt/unbound/etc/unbound'
+    ports:
+      - "5335:53/tcp"
+      - "5335:53/udp"
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+  audiobookshelf:
+    container_name: audiobookshelf
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    environment:
+      - 'AUDIOBOOKSHELF_UID=${UID}'
+      - 'AUDIOBOOKSHELF_GID=${GID}'
+    ports:
+      - 13378:80
+    volumes:
+      - '${MEDIA}/AudioBooks:/audiobooks'
+      - '${MEDIA}/Podcasts:/podcasts'
+      - '${DATA}/audiobookshelf:/config'
+      - '${DATA}/audiobookshelf/metadata:/metadata'
+        #  tvheadend:
+        #    image: lscr.io/linuxserver/tvheadend:latest
+        #    container_name: tvheadend
+        #    environment:
+        #      - 'PUID=${UID}'
+        #      - 'PGID=${GID}'
+        #      - 'TZ=${TZ}'
+        #      - RUN_OPTS= #optional
+        #    volumes:
+        #      - '${DATA}/tvheadend:/config'
+        #      - '${MEDIA}/DVR:/recordings'
+        #    ports:
+        #      - 9981:9981
+        #      - 9982:9982
+        #    devices:
+        #      - /dev/dri:/dev/dri #optional
+        #      - /dev/dvb:/dev/dvb #optional
+        #    restart: unless-stopped
+  wordle-helper:
+    image: mmatasic/wordle-helper:latest
+    container_name: wordle-helper
+    ports:
+      - 5000:5000
+      - 3000:3000
+
+
