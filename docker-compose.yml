@@ -105,15 +105,6 @@ services:
       - '51413:51413'
       - '51313:51413/udp'
     restart: unless-stopped
-      #  yacht:
-      #    container_name: yacht
-      #    image: selfhostedpro/yacht
-      #    restart: unless-stopped
-      #    ports:
-      #      - '8000:8000'
-      #    volumes:
-      #      - '${DATA}/yacht:/config'
-      #      - '/var/run/docker.sock:/var/run/docker.sock'
   jellyfin:
     image: 'linuxserver/jellyfin:latest'
     container_name: jellyfin
@@ -121,6 +112,7 @@ services:
       - 'PUID=${UID}'
       - 'PGID=${GID}'
       - 'TZ=${TZ}'
+      - DOCKER_MODS=linuxserver/mods:jellyfin-opencl-intel
     ports:
       - '8096:8096'
     volumes:
@@ -133,7 +125,6 @@ services:
       - '${MEDIA}/Misc:/data/misc'
       - '${MEDIA}/MusicVideos:/data/music-videos'
     devices:
-      # VAAPI Devices (examples)
       - /dev/dri/renderD128:/dev/dri/renderD128
       - /dev/dri/card0:/dev/dri/card0
     restart: unless-stopped
@@ -145,7 +136,6 @@ services:
       - '4533:4533'
     restart: unless-stopped
     environment:
-      # Optional: put your config options customization here. Examples:
       ND_SCANSCHEDULE: 1h
       ND_LOGLEVEL: info  
       ND_SESSIONTIMEOUT: 24h
@@ -170,33 +160,8 @@ services:
    ports:
      - 8337:8337
    restart: unless-stopped
-     #  homeassistant:
-     #    image: lscr.io/linuxserver/homeassistant:latest
-     #    container_name: homeassistant
-     #    environment:
-     #      - 'PUID=${UID}'
-     #      - 'PGID=${GID}'
-     #      - 'TZ=${TZ}'
-     #    volumes:
-     #      - '${DATA}/homeassistant:/config'
-     #    ports:
-     #      - 8123:8123 #optional
-     #    restart: unless-stopped
-  duckdns:
-    image: lscr.io/linuxserver/duckdns:latest
-    container_name: duckdns
-    environment:
-      - 'PUID=${UID}'
-      - 'PGID=${GID}'
-      - 'TZ=${TZ}'
-      - 'SUBDOMAINS=${DUCKDNS_SUBDOMAINS}'
-      - 'TOKEN=${DUCKDNS_TOKEN}'
-      - LOG_FILE=false #optional
-    volumes:
-      - '${DATA}/duckdns:/config' #optional
-    restart: unless-stopped
   swag:
-    image: lscr.io/linuxserver/swag
+    image: lscr.io/linuxserver/swag:latest
     container_name: swag
     cap_add:
       - NET_ADMIN
@@ -204,10 +169,11 @@ services:
       - 'PUID=${UID}'
       - 'PGID=${GID}'
       - 'TZ=${TZ}'
-      - 'URL=${DUCKDNS_URL}'
-      - SUBDOMAINS=wildcard
-      - VALIDATION=duckdns
-      - 'DUCKDNSTOKEN=${DUCKDNS_TOKEN}' 
+      - 'URL=${URL}'
+      - 'SUBDOMAINS=${SUBDOMAINS}'
+      - 'EXTRA_DOMAINS=${EXTRA_DOMAINS}'
+      - 'EMAIL=${EMAIL}'
+      - 'VALIDATION=${VALIDATION}'
     volumes:
       - '${DATA}/swag:/config'
     ports:
@@ -258,24 +224,6 @@ services:
       - '${MEDIA}/Podcasts:/podcasts'
       - '${DATA}/audiobookshelf:/config'
       - '${DATA}/audiobookshelf/metadata:/metadata'
-        #  tvheadend:
-        #    image: lscr.io/linuxserver/tvheadend:latest
-        #    container_name: tvheadend
-        #    environment:
-        #      - 'PUID=${UID}'
-        #      - 'PGID=${GID}'
-        #      - 'TZ=${TZ}'
-        #      - RUN_OPTS= #optional
-        #    volumes:
-        #      - '${DATA}/tvheadend:/config'
-        #      - '${MEDIA}/DVR:/recordings'
-        #    ports:
-        #      - 9981:9981
-        #      - 9982:9982
-        #    devices:
-        #      - /dev/dri:/dev/dri #optional
-        #      - /dev/dvb:/dev/dvb #optional
-        #    restart: unless-stopped
   wordle-helper:
     image: mmatasic/wordle-helper:latest
     container_name: wordle-helper
