@@ -30,22 +30,20 @@ services:
       - '${DATA}/radarr:/config'
       - '${MEDIA}/Filmovi:/movies'
       - '${MEDIA}/Downloads:/downloads'
-        #  lidarr:
-        #    container_name: lidarr
-        #    image: youegraillot/lidarr-on-steroids
-        #    restart: unless-stopped
-        #    ports:
-        #      - "8686:8686" # Lidarr web UI
-        #      - "6595:6595" # Deemix web UI
-        #    environment:
-        #      - 'PUID=${UID}'
-        #      - 'PGID=${GID}'
-        #      - 'TZ=${TZ}'
-        #    volumes:
-        #      - '${DATA}/lidarr:/config'
-        #      - '${DATA}/deemix:/config_deemix'
-        #      - '${MEDIA}/Downloads/lidarr:/downloads'
-        #      - '${MEDIA}/Music:/music'
+  lidarr:
+    container_name: lidarr
+    image: lscr.io/linuxserver/lidarr:latest
+    restart: unless-stopped
+    ports:
+      - "8686:8686" # Lidarr web UI
+    environment:
+      - 'PUID=${UID}'
+      - 'PGID=${GID}'
+      - 'TZ=${TZ}'
+    volumes:
+      - '${DATA}/lidarr:/config'
+      - '${MEDIA}/Downloads/lidarr:/downloads'
+      - '${MEDIA}/Music:/music'
   bazarr:
     image: lscr.io/linuxserver/bazarr:latest
     container_name: bazarr
@@ -200,17 +198,17 @@ services:
       - 127.0.0.1
       - 1.1.1.1
     restart: unless-stopped
-  unbound:
-    container_name: unbound
-    image: mvance/unbound:latest
-    volumes:
-      - '${DATA}/unbound:/opt/unbound/etc/unbound'
-    ports:
-      - "5335:53/tcp"
-      - "5335:53/udp"
-    healthcheck:
-      disable: true
-    restart: unless-stopped
+      # unbound:
+      #   container_name: unbound
+      #   image: mvance/unbound:latest
+      #   volumes:
+      #     - '${DATA}/unbound:/opt/unbound/etc/unbound'
+      #   ports:
+      #     - "5335:53/tcp"
+      #     - "5335:53/udp"
+      #   healthcheck:
+      #     disable: true
+      #   restart: unless-stopped
   audiobookshelf:
     container_name: audiobookshelf
     image: ghcr.io/advplyr/audiobookshelf:latest
@@ -224,11 +222,4 @@ services:
       - '${MEDIA}/Podcasts:/podcasts'
       - '${DATA}/audiobookshelf:/config'
       - '${DATA}/audiobookshelf/metadata:/metadata'
-  wordle-helper:
-    image: mmatasic/wordle-helper:latest
-    container_name: wordle-helper
-    ports:
-      - 5000:5000
-      - 3000:3000
-
 
