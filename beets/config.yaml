@@ -1,4 +1,4 @@
-plugins: fetchart embedart convert scrub replaygain lastgenre chroma web duplicates acousticbrainz smartplaylist lyrics
+plugins: fetchart embedart convert scrub replaygain lastgenre chroma web duplicates acousticbrainz smartplaylist lyrics mbsync discogs
 directory: /music
 library: /music/beetsmusiclibrary.blb
 replace:
@@ -62,7 +62,7 @@ lyrics:
 
 lastgenre:
     auto: yes
-    source: album
+    source: track
     count: 10
     force: yes
     separator: ","
@@ -85,13 +85,15 @@ web:
     port: 8337
 acousticbrainz:
     auto: yes
+discogs:
+   source_weight: 0.0
 smartplaylist:
     relative_to: /music 
     playlist_dir: /music
     forward_slash: no
     playlists:
         - name: sve_domace.m3u8 
-          query: 'country::"HR|YU|SI|BA|RS|CS|MK" ^genre:Kids'
+          query: 'country::"HR|YU|SI|BA|RS|CS|MK|Croatia|Yougoslavia|Slovenia|Serbia" ^genre:Kids'
         - name: auto_running_rock_150.m3u8
           query: 'bpm:145..154  "genre::(rock|Rock|metal|Metal|Punk|punk)" moods_mirex:Cluster5' 
         - name: auto_running_rock_160.m3u8

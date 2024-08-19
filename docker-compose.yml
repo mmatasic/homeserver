@@ -44,6 +44,7 @@ services:
       - '${DATA}/lidarr:/config'
       - '${MEDIA}/Downloads/lidarr:/downloads'
       - '${MEDIA}/Music:/music'
+      - '${MEDIA}/AudioBooks:/audiobooks'
   bazarr:
     image: lscr.io/linuxserver/bazarr:latest
     container_name: bazarr
@@ -141,6 +142,10 @@ services:
       ND_ENABLETRANSCODINGCONFIG: "true"
       ND_TRANSCODINGCACHESIZE: "200MB"
       ND_DEFAULTTHEME: "Spotify-ish"
+      ND_LASTFM_ENABLED: "true"
+      ND_LASTFM_APIKEY: "${ND_LASTFM_APIKEY}"
+      ND_LASTFM_SECRET: "${ND_LASTFM_SECRET}"
+      ND_LASTFM_LANGUAGE: "en"
     volumes:
       - '${DATA}/navidrome:/data'
       - '${MEDIA}/Music:/music:ro'
