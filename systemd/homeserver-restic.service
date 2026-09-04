@@ -1,0 +1,18 @@
+[Unit]
+Description=Homeserver backup — service configs and database dumps
+Documentation=file:///home/mmatasic/homeserver/BACKUP.md
+Requires=docker.service
+After=docker.service
+# Refuses to start unless the USB backup disk is actually mounted. The disk is
+# mounted nofail, so without this a failed enumeration would let the job run
+# and write into an empty directory on the OS SSD.
+RequiresMountsFor=/mnt/backup
+OnFailure=backup-failure@%n.service
+
+[Service]
+Type=oneshot
+# Runs as root — a system unit's default. That is required, not incidental:
+# nextcloud/data is www-data-owned and invisible to an unprivileged process,
+# which is why the previous backup system silently captured nothing.
+ExecStart=/home/mmatasic/homeserver/scripts/restic-backup.sh services
+TimeoutStartSec=3h

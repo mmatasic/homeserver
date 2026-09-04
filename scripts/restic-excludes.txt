@@ -1,0 +1,44 @@
+# Exclusion list for restic-backup.sh
+#
+# Rule of thumb: exclude only what is regenerable or what a file-level copy
+# would capture in an unrestorable state. When in doubt, keep it — restic
+# deduplicates, so an extra static directory costs one snapshot's worth once.
+
+# --- Live database directories -------------------------------------------
+# Dumped separately as .sql.gz. A file copy of a running Postgres/MariaDB
+# datadir is torn and cannot be restored; the dumps are the real backup.
+/home/mmatasic/homeserver/immich-postgres
+/home/mmatasic/homeserver/db_data
+
+# --- Caches and scratch space --------------------------------------------
+# Any directory literally named "cache". Measured: jellyfin/config/cache 3.2G,
+# navidrome/cache 543M. The --exclude-caches flag only catches directories
+# tagged with CACHEDIR.TAG, which most of these apps do not write.
+**/cache
+/home/mmatasic/homeserver/jellyfin/config/transcodes
+
+# The *arr apps' own internal backups — backing up backups.
+# lidarr 1.1G, radarr 57M, sonarr similar.
+**/Backups
+
+# Artwork caches: lidarr 4.6G + radarr 1.8G. Regenerable, and they churn as
+# the library changes, so they would add delta to every single snapshot.
+# After a restore the UIs show placeholder art until they re-fetch it.
+# Delete these two lines if you would rather keep the artwork.
+**/MediaCover
+
+# Pi-hole: query history and the blocklist DB both rebuild themselves.
+# The config that matters (setupVars.conf, custom.list, dnsmasq.d) is kept.
+/home/mmatasic/homeserver/pihole/etc-pihole/pihole-FTL.db
+/home/mmatasic/homeserver/pihole/etc-pihole/gravity.db
+
+# --- Logs -----------------------------------------------------------------
+/home/mmatasic/homeserver/swag/log
+**/logs
+*.log
+*.log.[0-9]
+
+# --- Runtime junk ---------------------------------------------------------
+# Sockets and pidfiles are meaningless once restored and sometimes unreadable.
+**/*.sock
+**/*.pid

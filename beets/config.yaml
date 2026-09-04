@@ -1,4 +1,4 @@
-plugins: fetchart embedart convert scrub replaygain lastgenre chroma web duplicates acousticbrainz smartplaylist lyrics mbsync discogs
+plugins: fetchart embedart convert scrub replaygain lastgenre chroma web duplicates smartplaylist mbsync discogs fromfilename musicbrainz
 directory: /music
 library: /music/beetsmusiclibrary.blb
 replace:
@@ -50,6 +50,7 @@ import:
     incremental: yes
     quiet_fallback: skip
     timid: no
+    languages: en hr 
     log: /config/beet.log
     match:
         max_rec:
@@ -75,6 +76,7 @@ fetchart:
     
 replaygain:
     auto: no
+    backend: ffmpeg
 
 scrub:
     auto: yes
@@ -83,10 +85,6 @@ chroma:
 web:
     host: 0.0.0.0
     port: 8337
-acousticbrainz:
-    auto: yes
-discogs:
-   source_weight: 0.0
 smartplaylist:
     relative_to: /music 
     playlist_dir: /music
@@ -104,3 +102,4 @@ smartplaylist:
           query: 'bpm:175..184  "genre::(rock|Rock|metal|Metal|Punk|punk)" moods_mirex:Cluster5' 
         - name: auto_danceable_happy.m3u8
           query: 'danceable:0.9.. mood_happy:0.9..'
+

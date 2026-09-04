@@ -1,0 +1,87 @@
+- sensor:
+  - name: "Current Electricity Price"
+    unit_of_measurement: "EUR/kWh"
+    state: >
+      {% set high_rate = 0.095499 %}
+      {% set low_rate = 0.046859 %}
+      {% set now = now() %}
+      {% set year = now.year %}
+
+      {% set march = namespace(last_sunday=0) %}
+      {% for day in range(31, 24, -1) %}
+        {% set date = now.replace(year=year, month=3, day=day) %}
+        {% if date.weekday() == 6 %}
+          {% set march.last_sunday = day %}
+          {% break %}
+        {% endif %}
+      {% endfor %}
+      {% set dst_start = now.replace(year=year, month=3, day=march.last_sunday, hour=2) %}
+
+      {% set october = namespace(last_sunday=0) %}
+      {% for day in range(31, 24, -1) %}
+        {% set date = now.replace(year=year, month=10, day=day) %}
+        {% if date.weekday() == 6 %}
+          {% set october.last_sunday = day %}
+          {% break %}
+        {% endif %}
+      {% endfor %}
+      {% set dst_end = now.replace(year=year, month=10, day=october.last_sunday, hour=3) %}
+
+      {% set summer_time = dst_start <= now < dst_end %}
+      {% set hour = now.hour %}
+
+      {% if summer_time %}
+        {% if 8 <= hour < 22 %}
+          {{ high_rate }}
+        {% else %}
+          {{ low_rate }}
+        {% endif %}
+      {% else %}
+        {% if 7 <= hour < 21 %}
+          {{ high_rate }}
+        {% else %}
+          {{ low_rate }}
+        {% endif %}
+      {% endif %}
+- binary_sensor:
+  - name: "AC Heating is Cheaper"
+    unique_id: "ac_heating_is_cheaper"
+    icon: mdi:check-circle-outline
+    state: >
+      {% set temp = state_attr('weather.forecast_home', 'temperature') | float(-21) %}
+      {% set electricity_price = states('sensor.current_electricity_price') | float(0) %}
+      {% set fixed_price_threshold = 0.056070 %}
+      {% set cop_table = {
+        -10: 1.00, -9: 1.01, -8: 1.02, -7: 1.03, -6: 1.04,
+        -5: 1.05, -4: 1.06, -3: 1.07, -2: 1.08, -1: 1.09,
+         0: 1.10, 1: 1.51, 2: 1.67, 3: 1.81, 4: 2.76,
+         5: 3.17, 6: 3.59, 7: 4.00, 8: 4.05, 9: 4.10,
+        10: 4.15, 11: 4.20, 12: 4.25, 13: 4.30, 14: 4.35,
+        15: 4.40, 16: 4.45, 17: 4.50, 18: 4.60, 19: 4.70,
+        20: 4.80
+      } %}
+      {% set min_temp = cop_table.keys() | min %}
+      {% set max_temp = cop_table.keys() | max %}
+
+      {% set rounded_temp = temp | round(0, 'half') | int %}
+      {% if rounded_temp < min_temp %}
+        {% set used_temp = min_temp %}
+      {% elif rounded_temp > max_temp %}
+        {% set used_temp = max_temp %}
+      {% else %}
+        {% set used_temp = rounded_temp %}
+      {% endif %}
+
+      {% set current_cop = cop_table.get(used_temp, 0.0) %}
+
+      {% if current_cop > 0 %}
+        {% set effective_price = electricity_price / current_cop %}
+        {{ effective_price < fixed_price_threshold }}
+      {% else %}
+        false
+      {% endif %}
+  - name: "Presence Simulation Active"
+    unique_id: "presence_sim_active"
+    icon: mdi:home-account
+    state: >
+      {{ states('alarm_control_panel.house_alarm') in ['armed_away', 'armed_vacation'] }}

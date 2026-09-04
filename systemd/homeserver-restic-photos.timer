@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly homeserver backup (photos)
+
+[Timer]
+# Two hours ahead of the service backup: the two runs share a flock, and this
+# one is far longer, so it needs room to finish first.
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

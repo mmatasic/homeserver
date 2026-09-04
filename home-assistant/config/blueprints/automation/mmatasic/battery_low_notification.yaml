@@ -1,0 +1,48 @@
+blueprint:
+  name: Battery Notes - Low Battery Notification with Auto-Dismiss
+  description: Get a persistent notification when a device's battery level is low, and automatically dismiss it when the battery level returns to normal. Requires the "Battery Notes" integration.
+  domain: automation
+  source_url: https://github.com/YourGitHubUsername/YourRepoName/blob/main/battery_low_notification.yaml
+  author: Your Name/Username
+
+mode: queued
+
+trigger:
+  - platform: event
+    event_type: battery_notes_battery_threshold
+    event_data:
+      battery_low: true
+    id: low
+    alias: Battery went low
+  - platform: event
+    event_type: battery_notes_battery_threshold
+    event_data:
+      battery_low: false
+    id: high
+    alias: Battery went high
+
+condition: []
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id:
+              - low
+        sequence:
+          - service: persistent_notification.create
+            data:
+              title: "{{ trigger.event.data.device_name }} Battery Low"
+              notification_id: "{{ trigger.event.data.device_id }}-{{ trigger.event.data.source_entity_id }}"
+              message: >
+                The device has a battery level of {{ trigger.event.data.battery_level }}%
+                {{ '\n' -}} You need {{ trigger.event.data.battery_quantity }}x
+                {{ trigger.event.data.battery_type }}
+      - conditions:
+          - condition: trigger
+            id:
+              - high
+        sequence:
+          - service: persistent_notification.dismiss
+            data:
+              notification_id: "{{ trigger.event.data.device_id }}-{{ trigger.event.data.source_entity_id }}"

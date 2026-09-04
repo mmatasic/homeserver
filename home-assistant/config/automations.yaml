@@ -1,0 +1,256 @@
+- id: '1757067092620'
+  alias: styrbar-dnevna
+  description: ''
+  use_blueprint:
+    path: mmatasic/styrbar_remote_control.yaml
+    input:
+      light_entity: light.dnevna_lights
+      mqtt_device: 73cd72a206fb848d80af52e27b0db220
+      delay_ms: 200
+      brightness_step: 10
+- id: '1757938850479'
+  alias: 'Zvonko - S23 notification '
+  description: ''
+  use_blueprint:
+    path: speedyspikes/send-camera-snapshot-notification-on-doorbell.yaml
+    input:
+      binary_sensor: binary_sensor.zvonko_motion
+      camera: camera.zvonko_fluent
+      notify_device: f0e6a141cc4c6e5ee25132c2f246aadd
+      is_ios: false
+      delay_start: 1
+      throttle_time: 5
+      notification_title: Zvonko detectiom
+      notification_message: '{{ binary_sensor_name }} was triggered '
+- id: '1757939084669'
+  alias: Zvonko - TV notification
+  description: ''
+  triggers:
+  - type: motion
+    device_id: f0a8636e9b6de2dbc87c380b48d27298
+    entity_id: 28fbf70cc50cec083e627ea004f4eedd
+    domain: binary_sensor
+    trigger: device
+  - type: turned_on
+    device_id: f0a8636e9b6de2dbc87c380b48d27298
+    entity_id: 0cb4ade66a267aa81fbd253697bf4938
+    domain: binary_sensor
+    trigger: device
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - type: is_motion
+        condition: device
+        device_id: f0a8636e9b6de2dbc87c380b48d27298
+        entity_id: 28fbf70cc50cec083e627ea004f4eedd
+        domain: binary_sensor
+      sequence:
+      - action: notify.lg_webos_tv_oled48a23la
+        continue_on_error: true
+        metadata: {}
+        data:
+          message: Zvonko - motion detected
+    - conditions:
+      - type: is_on
+        condition: device
+        device_id: f0a8636e9b6de2dbc87c380b48d27298
+        entity_id: 0cb4ade66a267aa81fbd253697bf4938
+        domain: binary_sensor
+      sequence:
+      - action: notify.lg_webos_tv_oled48a23la
+        continue_on_error: true
+        metadata: {}
+        data:
+          message: Zvonko - person detected
+  mode: single
+- id: '1758114430481'
+  alias: Garderoba-Ormanas-motion-light
+  description: ''
+  use_blueprint:
+    path: mmatasic/motion_light_2_sensors.yaml
+    input:
+      motion_entity_1: binary_sensor.sonoff_snzb_03p_occupancy
+      motion_entity_2: binary_sensor.valhorn_garderoba_occupancy
+      light_target:
+        device_id: 7e1a075569c9ec2898b2a8b4cc478f6c
+      no_motion_wait: 2
+- id: water_leak_detection
+  alias: Water leak detected
+  description: Alert on any water leak sensor (Aqara sudoper + Badring) - push, TTS,
+    red flash
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.aqara_sudoper_water_leak
+    - binary_sensor.badring_detektor_vode_1_water_leak
+    from: 'off'
+    to: 'on'
+  variables:
+    leak_where: "{% set m = {\n  'binary_sensor.aqara_sudoper_water_leak': 'kitchen
+      sink (Sudoper)',\n  'binary_sensor.badring_detektor_vode_1_water_leak': 'Badring
+      water detector'\n} %} {{ m.get(trigger.entity_id, trigger.to_state.name) }}\n"
+  actions:
+  - action: persistent_notification.create
+    data:
+      title: "\U0001F6A8 Water leak detected"
+      message: Leak detected at {{ leak_where }} at {{ now().strftime('%H:%M:%S %d.%m.%Y')
+        }}. Check immediately!
+  - action: notify.mobile_app_samsung_s23
+    data:
+      title: "\U0001F6A8 WATER LEAK \U0001F6A8"
+      message: Leak detected at {{ leak_where }} - check immediately!
+      data:
+        priority: high
+        ttl: 0
+        sticky: true
+        tag: water_leak
+  - action: tts.speak
+    continue_on_error: true
+    metadata: {}
+    data:
+      cache: false
+      media_player_entity_id: media_player.wiim_amp
+      message: Warning. Water leak detected at {{ leak_where }}. Please check immediately.
+    target:
+      entity_id: tts.google_translate_en_com
+  - action: light.turn_on
+    continue_on_error: true
+    data:
+      flash: short
+      rgb_color:
+      - 255
+      - 0
+      - 0
+      brightness_pct: 100
+    target:
+      device_id: 7e1a075569c9ec2898b2a8b4cc478f6c
+  mode: queued
+- id: '1758276333099'
+  alias: Battery Notes - Low Battery Notification with Auto-Dismiss
+  description: ''
+  use_blueprint:
+    path: mmatasic/battery_low_notification.yaml
+- id: '1772193950399'
+  alias: Silverglans - Somrig - kupaona
+  description: ''
+  use_blueprint:
+    path: blueprint-somrig-1-2.bearstorm.workers.dev/.yaml
+    input:
+      remote_device: 031fc518741a4f39a690e9f27840a9d1
+      dots_1_press_action:
+      - type: turn_off
+        device_id: 9d879f3118c48a63462fd38c852df042
+        entity_id: 37ba5b467eaa8eb543be051fb1ca69da
+        domain: light
+      dots_2_press_action:
+      - type: turn_on
+        device_id: 9d879f3118c48a63462fd38c852df042
+        entity_id: 37ba5b467eaa8eb543be051fb1ca69da
+        domain: light
+        brightness_pct: 70
+      - action: light.turn_on
+        metadata: {}
+        data: {}
+      dots_1_hold_action:
+      - device_id: 9d879f3118c48a63462fd38c852df042
+        domain: light
+        entity_id: 37ba5b467eaa8eb543be051fb1ca69da
+        type: brightness_decrease
+      dots_2_hold_action:
+      - device_id: 9d879f3118c48a63462fd38c852df042
+        domain: light
+        entity_id: 37ba5b467eaa8eb543be051fb1ca69da
+        type: brightness_increase
+      dots_1_double_press_action:
+      - device_id: 9d879f3118c48a63462fd38c852df042
+        domain: light
+        entity_id: 37ba5b467eaa8eb543be051fb1ca69da
+        type: brightness_decrease
+      dots_2_double_press_action:
+      - device_id: 9d879f3118c48a63462fd38c852df042
+        domain: light
+        entity_id: 37ba5b467eaa8eb543be051fb1ca69da
+        type: brightness_increase
+- alias: 'Bathroom: Memory for SOMRIG'
+  id: bathroom_memory_somrig
+  trigger:
+  - platform: state
+    entity_id: light.silverglans_kupaona
+    attribute: brightness
+  condition:
+  - condition: template
+    value_template: '{{ trigger.to_state.context.parent_id is none }}'
+  - condition: template
+    value_template: '{{ trigger.to_state.state == ''on'' and trigger.to_state.attributes.brightness
+      is not none }}'
+  action:
+  - service: input_number.set_value
+    target:
+      entity_id: input_number.bathroom_last_brightness
+    data:
+      value: '{{ (trigger.to_state.attributes.brightness / 255 * 100) | round(0) }}'
+- alias: 'Bathroom: Occupancy Control'
+  id: bathroom_occupancy_control
+  mode: restart
+  variables:
+    light_entity: light.silverglans_kupaona
+    night_brightness: 10
+    off_delay: 900
+    transition_on: 1
+    transition_off: 5
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.myggspray_wrlss_mtn_sensor_occupancy
+    from: 'off'
+    to: 'on'
+    id: motion_on
+  - platform: state
+    entity_id: binary_sensor.myggspray_wrlss_mtn_sensor_occupancy
+    from: 'on'
+    to: 'off'
+    id: motion_off
+  action:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: motion_on
+      sequence:
+      - service: light.turn_on
+        target:
+          entity_id: '{{ light_entity }}'
+        data:
+          transition: '{{ transition_on }}'
+          brightness_pct: "{% set hr = now().hour %} {% set min = now().minute %}
+            {# Night Logic: 23:59 to 06:30 #} {% if (hr == 23 and min >= 59) or (hr
+            < 6) or (hr == 6 and min < 30) %}\n  {{ night_brightness }}\n{% else %}\n
+            \ {# Use saved SOMRIG brightness #}\n  {{ states('input_number.bathroom_last_brightness')
+            | int(50) }}\n{% endif %}\n"
+    - conditions:
+      - condition: trigger
+        id: motion_off
+      sequence:
+      - delay: '{{ off_delay }}'
+      - service: light.turn_off
+        target:
+          entity_id: '{{ light_entity }}'
+        data:
+          transition: '{{ transition_off }}'
+- id: battery_notes_low_push
+  alias: 'Battery Notes: low battery phone push'
+  description: Push to phone when any Battery Notes device crosses its low threshold
+  triggers:
+  - trigger: event
+    event_type: battery_notes_battery_threshold
+    event_data:
+      battery_low: true
+  actions:
+  - action: notify.mobile_app_samsung_s23
+    data:
+      title: "\U0001F50B Low battery: {{ trigger.event.data.device_name }}"
+      message: '{{ trigger.event.data.device_name }} is at {{ trigger.event.data.battery_level
+        }}% - needs {{ trigger.event.data.battery_quantity }}x {{ trigger.event.data.battery_type
+        }}.'
+      data:
+        tag: bn_battery_{{ trigger.event.data.device_id }}
+  mode: queued

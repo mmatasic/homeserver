@@ -1,0 +1,30 @@
+test_tts:
+  sequence:
+  - action: tts.speak
+    metadata: {}
+    data:
+      cache: true
+      media_player_entity_id: media_player.wiim_amp
+      message: Testing the TTS capabilities. Thank you for your attention to this
+        mater!
+  alias: Test TTS
+  description: ''
+zvonko_mibox_display:
+  sequence:
+  - action: media_player.play_media
+    target:
+      entity_id: media_player.xiaomi_tv_box
+    data:
+      media_content_id: media-source://camera/camera.zvonko_fluent
+      media_content_type: application/vnd.apple.mpegurl
+    metadata:
+      title: Zvonko Fluent
+      thumbnail: /api/camera_proxy/camera.zvonko_fluent
+      media_class: video
+      children_media_class:
+      navigateIds:
+      - {}
+      - media_content_type: app
+        media_content_id: media-source://camera
+  alias: Zvonko-MiBox-display
+  description: ''

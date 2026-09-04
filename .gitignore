@@ -1,13 +1,24 @@
+# Secrets — never commit
 .env
+.backup-passphrase
+home-assistant/config/secrets.yaml
+# House alarm design + presence simulation. Public repo — see BACKUP.md.
+home-assistant/config/alarm.yaml
+home-assistant/config/alarm_panel.yaml
+
+# Beets
 beets/*.log*
 beets/.cache/*
 beets/.*history
 beets/beets.sh
 beets/*.pickle
+
+# Service data/runtime directories
 deemix/
 bazarr/
 duckdns/
 heimdall/
+# Note: homeassistant/ (no dash) was here before — the real dir is home-assistant/
 homeassistant/
 jackett/
 jellyfin/
@@ -23,3 +34,53 @@ audiobookshelf/
 tvheadend/
 unbound/
 nextcloud/
+zigbee2mqtt/
+immich-postgres/
+overseerr/
+jellyseerr/
+db_data/
+
+# Actual Budget server data — SQLite accounts and budget blobs.
+# Financial data. Never commit; the restic backup is its only copy.
+actual/
+
+# Home Assistant runtime (config files ARE tracked; only exclude runtime/binary data)
+home-assistant/config/.HA_VERSION
+home-assistant/config/.cache/
+home-assistant/config/.ha_run.lock
+home-assistant/config/home-assistant_v2.db*
+home-assistant/config/.storage/
+home-assistant/config/tts/
+home-assistant/config/image/
+home-assistant/config/home-assistant.log
+home-assistant/config/home-assistant.log.*
+home-assistant/matter-server/
+home-assistant/otbr/
+
+# Backup/junk files
+*.bak
+swag.bkp/
+.Trash-*/
+/n
+/o
+/s
+
+# Tools/binaries
+sacd_extract/
+sacd_extract
+sacd_extract.cfg
+
+# Beets generated/sensitive
+beets/discogs_token.json
+beets/library.txt
+
+# Home Assistant — large/generated, restore via HACS after recovery
+home-assistant/config/custom_components/
+home-assistant/config/www/
+
+# Operational docs — kept local. This repo is PUBLIC.
+# SECURITY_AUDIT.md names live unpatched issues against a publicly-resolvable
+# hostname. LOCAL.md holds the IPs, hostname and disk UUID that the committed
+# documentation deliberately leaves out.
+SECURITY_AUDIT.md
+LOCAL.md

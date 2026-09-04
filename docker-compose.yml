@@ -9,9 +9,9 @@ services:
     environment:
       - 'PUID=${UID}'
       - 'PGID=${GID}'
-      - 'TZ=${TZ}'
-    volumes:
+      - 'TZ=${TZ}' 
       - '/etc/localtime:/etc/localtime:ro'
+    volumes:
       - '${DATA}/sonarr:/config'
       - '${MEDIA}/Serije:/tv'
       - '${MEDIA}/Downloads:/downloads'
@@ -81,9 +81,6 @@ services:
       - 'TZ=${TZ}'
     volumes:
       - '${DATA}/heimdall:/config'
-    ports:
-      - '8080:80'
-      - '8443:443'
     restart: unless-stopped
   transmission:
     container_name: transmission
@@ -112,8 +109,8 @@ services:
       - 'PGID=${GID}'
       - 'TZ=${TZ}'
       - DOCKER_MODS=linuxserver/mods:jellyfin-opencl-intel
-    ports:
-      - '8096:8096'
+    # No host port: SWAG proxies jfin.* to jellyfin:8096 over the docker network.
+    # Jellyseerr must use hostname 'jellyfin' (not jellyfin.home) to reach it.
     volumes:
       - '${DATA}/jellyfin/config:/config'
       - '${DATA}/jellyfin/cache:/cache'
@@ -131,8 +128,7 @@ services:
     image: deluan/navidrome:latest
     container_name: navidrome 
     user: 1000:1000
-    ports:
-      - '4533:4533'
+    # No host port: SWAG proxies ndrome.* to navidrome:4533 over the docker network.
     restart: unless-stopped
     environment:
       ND_SCANSCHEDULE: 1h
@@ -163,6 +159,26 @@ services:
    ports:
      - 8337:8337
    restart: unless-stopped
+     #command: sh -c "apk add --no-cache build-base python3-dev cmake && pip install 'beets[autobpm]' && beets"
+  actual-server:
+    image: 'actualbudget/actual-server:latest'
+    container_name: actual-server
+    environment:
+      - 'TZ=${TZ}'
+      - 'ACTUAL_UPLOAD_FILE_SYNC_SIZE_LIMIT_MB=20'
+      - 'ACTUAL_UPLOAD_SYNC_ENCRYPTED_FILE_SYNC_SIZE_LIMIT_MB=50'
+      - 'ACTUAL_UPLOAD_FILE_SIZE_LIMIT_MB=20'
+    volumes:
+      - '/etc/localtime:/etc/localtime:ro'
+      - '${DATA}/actual:/data'
+    # No host port: SWAG proxies actual.* to actual-server:5006 over the docker network.
+    healthcheck:
+      test: ['CMD-SHELL', 'node scripts/health-check.js']
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
   swag:
     image: lscr.io/linuxserver/swag:latest
     container_name: swag
@@ -179,7 +195,7 @@ services:
       - 'VALIDATION=${VALIDATION}'
     volumes:
       - '${DATA}/swag:/config'
-    ports:
+    ports: 
       - 443:443
       - 80:80
     restart: unless-stopped
@@ -189,7 +205,7 @@ services:
     ports:
       - "53:53/tcp"
       - "53:53/udp"
-      - "8081:80/tcp"
+      - "8089:80/tcp"
       - "8444:443/tcp"
     environment:
       - 'TZ=${TZ}'
@@ -227,4 +243,192 @@ services:
       - '${MEDIA}/Podcasts:/podcasts'
       - '${DATA}/audiobookshelf:/config'
       - '${DATA}/audiobookshelf/metadata:/metadata'
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    environment:
+      - 'LOG_LEVEL=debug'
+      - 'TZ=${TZ}'
+    ports:
+      - 5055:5055
+    volumes:
+      - '${DATA}/jellyseerr:/app/config'
+    restart: unless-stopped
+  nextcloud:
+    image: nextcloud:latest
+    container_name: nextcloud
+    restart: unless-stopped
+    volumes:
+      - '${DATA}/nextcloud:/var/www/html'
+    environment:
+      - 'NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER}'
+      - 'NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}'
+      - 'NEXTCLOUD_TRUSTED_DOMAINS=nextcloud.mmatasic.duckdns.org'
+      - 'MYSQL_HOST=nextcloud-db'
+      - 'MYSQL_DATABASE=nextcloud'
+      - 'MYSQL_USER=${NEXTCLOUD_MYSQL_USER}'
+      - 'MYSQL_PASSWORD=${NEXTCLOUD_MYSQL_PASSWORD}'
+    depends_on:
+      - nextcloud-db
+  nextcloud-db:
+    image: mariadb:latest
+    container_name: nextcloud_db
+    restart: unless-stopped
+    volumes:
+      - ./db_data:/var/lib/mysql
+    environment:
+      - 'MYSQL_ROOT_PASSWORD=${NEXTCLOUD_MYSQL_ROOT_PASSWORD}'
+      - MYSQL_DATABASE=nextcloud
+      - 'MYSQL_USER=${NEXTCLOUD_MYSQL_USER}'
+      - 'MYSQL_PASSWORD=${NEXTCLOUD_MYSQL_PASSWORD}'
+  immich-server:
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+      - /dev/dri/card0:/dev/dri/card0
+      - /dev/dri/:/dev/dri
+    volumes:
+      # Do not edit the next line. If you want to change the media storage location on your system, edit the value of UPLOAD_LOCATION in the .env file
+      - ${UPLOAD_LOCATION}:/usr/src/app/upload
+      - ${EXTERNAL_LIBRARY}:/usr/src/app/external
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    # No host port: SWAG proxies immich.* to immich_server:2283 over the docker network.
+    depends_on:
+      - redis
+      - database
+    restart: always
+    healthcheck:
+      disable: false
+
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    # For hardware acceleration, add one of -[armnn, cuda, openvino] to the image tag.
+    # Example tag: ${IMMICH_VERSION:-release}-cuda
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    # extends: # uncomment this section for hardware acceleration - see https://immich.app/docs/features/ml-hardware-acceleration
+    #   file: hwaccel.ml.yml
+    #   service: cpu # set to one of [armnn, cuda, openvino, openvino-wsl] for accelerated inference - use the `-wsl` version for WSL2 where applicable
+    volumes:
+      - model-cache:/cache
+    env_file:
+      - .env
+    restart: always
+    healthcheck:
+      disable: false
+
+  redis:
+    container_name: immich_redis
+    image: docker.io/redis:6.2-alpine@sha256:148bb5411c184abd288d9aaed139c98123eeb8824c5d3fce03cf721db58066d8
+    healthcheck:
+      test: redis-cli ping || exit 1
+    restart: always
+
+  database:
+    container_name: immich_postgres
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.3.0-pgvectors0.2.0 
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_DB: ${DB_DATABASE_NAME}
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    volumes:
+      # Do not edit the next line. If you want to change the database storage location on your system, edit the value of DB_DATA_LOCATION in the .env file
+      - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+    restart: always
+#HOME ASSISTANT STACK
+  homeassistant:
+    container_name: homeassistant
+    image: ghcr.io/home-assistant/home-assistant:stable
+    depends_on:
+      - mqtt
+      - zigbee2mqtt
+      - otbr
+      - matter-server
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - '${DATA}/home-assistant/config:/config'
+    environment:
+      - 'PUID=${UID}'
+      - 'PGID=${GID}'
+      - 'TZ=${TZ}' 
+    restart: unless-stopped
+    network_mode: host
+    #ports:
+     # - 8123:8123
+  mqtt:
+    container_name: mqtt
+    environment:
+      - 'PUID=${UID}'
+      - 'PGID=${GID}'
+      - 'TZ=${TZ}' 
+    image: eclipse-mosquitto:latest
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - '${DATA}/mqtt/data:/mosquitto'
+    ports:
+      - 1883:1883
+      - 9001:9001
+    command: mosquitto -c /mosquitto-no-auth.conf
+  zigbee2mqtt:
+    container_name: zigbee2mqtt
+    environment:
+      - 'PUID=${UID}'
+      - 'PGID=${GID}'
+      - 'TZ=${TZ}' 
+    restart: unless-stopped
+    image: koenkk/zigbee2mqtt:latest
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - '${DATA}/zigbee2mqtt/data:/app/data'
+    ports:
+      - 8088:8080
+
+  matter-server:
+    image: ghcr.io/matter-js/python-matter-server:stable
+    container_name: matter-server
+    restart: unless-stopped
+    # Required for mDNS to work correctly
+    network_mode: host
+    security_opt:
+      # Needed for Bluetooth via dbus
+      - apparmor:unconfined
+    volumes:
+      # Create an .env file that sets the USERDIR environment variable.
+      - '${DATA}/home-assistant/matter-server/data:/data/'
+      # Required for Bluetooth via D-Bus
+      - /run/dbus:/run/dbus:ro
+    # If you adjust command line, make sure to pass the default CMD arguments too:
+    #command: --storage-path /data --paa-root-cert-dir /data/credentials --bluetooth-adapter 0u 
+  otbr:
+    container_name: otbr
+    image: openthread/border-router:latest
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    privileged: true
+    environment:
+      - OT_RCP_DEVICE=spinel+hdlc+uart:///dev/ttyUSB0?uart-baudrate=460800
+      - OT_THREAD_IF=wpan0
+      - OT_INFRA_IF=eno1
+      - OT_LOG_LEVEL=7
+      - OT_REST_LISTEN_ADDR=0.0.0.0
+      - OT_REST_LISTEN_PORT=8081
+      - OT_WEB_LISTEN_ADDR=0.0.0.0
+      - OT_WEB_LISTEN_PORT=8080
+    devices:
+      - /dev/net/tun:/dev/net/tun
+      - /dev/ttyUSB0:/dev/ttyUSB0
+    volumes:
+      - ${DATA}/home-assistant/otbr:/data
+volumes:
+  model-cache:
 

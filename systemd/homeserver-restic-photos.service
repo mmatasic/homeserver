@@ -1,0 +1,15 @@
+[Unit]
+Description=Homeserver backup — Immich photo libraries
+Documentation=file:///home/mmatasic/homeserver/BACKUP.md
+Requires=docker.service
+After=docker.service
+# Both the destination and the NAS source must be present.
+RequiresMountsFor=/mnt/backup /mnt/data
+OnFailure=backup-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/mmatasic/homeserver/scripts/restic-backup.sh photos
+# Reads hundreds of GB over the network on a cold run. Generous, because a
+# timeout here would abort mid-snapshot for no good reason.
+TimeoutStartSec=12h

@@ -1,0 +1,73 @@
+blueprint:
+  name: Motion-activated Light (Two Sensors)
+  description: Turn on a light when motion is detected by either of two sensors.
+  domain: automation
+  source_url: https://github.com/home-assistant/core/blob/dev/homeassistant/components/automation/blueprints/motion_light.yaml
+  author: mmatasic 
+  input:
+    motion_entity_1:
+      name: Motion Sensor 1
+      selector:
+        entity:
+          filter:
+            - device_class: occupancy
+              domain: binary_sensor
+            - device_class: motion
+              domain: binary_sensor
+    motion_entity_2:
+      name: Motion Sensor 2
+      selector:
+        entity:
+          filter:
+            - device_class: occupancy
+              domain: binary_sensor
+            - device_class: motion
+              domain: binary_sensor
+    light_target:
+      name: Light
+      selector:
+        target:
+          entity:
+            domain: light
+    no_motion_wait:
+      name: Wait time
+      description: Time to leave the light on after last motion is detected.
+      default: 120
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: seconds
+
+variables:
+  motion1: !input motion_entity_1
+  motion2: !input motion_entity_2
+
+mode: restart
+max_exceeded: silent
+
+trigger:
+  - platform: state
+    entity_id: !input motion_entity_1
+    from: "off"
+    to: "on"
+  - platform: state
+    entity_id: !input motion_entity_2
+    from: "off"
+    to: "on"
+
+action:
+  - alias: "Turn on the light"
+    service: light.turn_on
+    target: !input light_target
+
+  - alias: "Wait until both motion sensors are off"
+    wait_template: >
+      {{ states(motion1) == 'off' and states(motion2) == 'off' }}
+
+  - alias: "Wait the number of seconds that has been set"
+    delay: !input no_motion_wait
+
+  - alias: "Turn off the light"
+    service: light.turn_off
+    target: !input light_target

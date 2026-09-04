@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly homeserver backup (services)
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+# Catch up after downtime rather than silently skipping a night.
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

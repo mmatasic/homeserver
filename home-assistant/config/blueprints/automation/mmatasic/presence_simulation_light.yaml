@@ -1,0 +1,196 @@
+blueprint:
+  name: Presence Simulation (Random Light)
+  description: >
+    Make a light behave as if someone is home. While it is dark outside and you
+    are within your "awake" hours, the light switches on for a random period,
+    then off for a random gap, over and over, so the house looks lived-in.
+    The light is cut short the moment the window closes (bedtime or sunrise) and
+    is always turned off when the simulation stops.
+
+
+    Create one automation per light/room from this blueprint — because each run
+    picks its own random timings, several rooms will naturally look independent.
+  domain: automation
+  author: mmatasic
+  input:
+    light_target:
+      name: Light
+      description: The light(s) to control. Multiple bulbs here switch together.
+      selector:
+        target:
+          entity:
+            domain: light
+
+    time_start:
+      name: Awake from
+      description: Earliest time the simulation may turn a light on.
+      default: "06:30:00"
+      selector:
+        time: {}
+    time_end:
+      name: Awake until
+      description: Latest time the simulation may keep a light on (your bedtime).
+      default: "23:30:00"
+      selector:
+        time: {}
+
+    sun_elevation:
+      name: Darkness threshold
+      description: >
+        Treat it as "dark" when the sun is below this elevation.
+        0 = horizon (sunset/sunrise), -6 = civil dusk, -12 = darker.
+      default: 0
+      selector:
+        number:
+          min: -18
+          max: 20
+          step: 1
+          unit_of_measurement: "°"
+
+    min_on:
+      name: Minimum on time
+      default: 4
+      selector:
+        number:
+          min: 1
+          max: 240
+          unit_of_measurement: minutes
+    max_on:
+      name: Maximum on time
+      default: 25
+      selector:
+        number:
+          min: 1
+          max: 240
+          unit_of_measurement: minutes
+    min_off:
+      name: Minimum off gap
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 240
+          unit_of_measurement: minutes
+    max_off:
+      name: Maximum off gap
+      default: 40
+      selector:
+        number:
+          min: 0
+          max: 240
+          unit_of_measurement: minutes
+
+    brightness_pct:
+      name: Brightness
+      description: Brightness to use when the light turns on (ignored by on/off-only bulbs).
+      default: 100
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+
+    enabler:
+      name: Enable helper (optional)
+      description: >
+        Optional entity (e.g. an input_boolean like "Away" or "Holiday mode").
+        The simulation only runs while this is on. Leave empty to always run
+        whenever it is dark and within your awake hours.
+      default: ""
+      selector:
+        entity: {}
+
+variables:
+  elevation_threshold: !input sun_elevation
+  time_start: !input time_start
+  time_end: !input time_end
+  enabler: !input enabler
+  min_on: !input min_on
+  max_on: !input max_on
+  min_off: !input min_off
+  max_off: !input max_off
+
+mode: single
+max_exceeded: silent
+
+trigger:
+  - platform: homeassistant
+    event: start
+  - platform: state
+    entity_id: sun.sun
+    to: below_horizon
+  - platform: time
+    at: !input time_start
+  - platform: time_pattern
+    minutes: "/10"
+
+# Re-evaluated on every trigger and, via the inline templates below, on every
+# loop iteration: dark outside AND inside the awake window AND enabler on.
+condition:
+  - condition: template
+    value_template: >-
+      {% set el = state_attr('sun.sun', 'elevation') | float(90) %}
+      {% set dark = el < (elevation_threshold | float(0)) %}
+      {% set s = today_at(time_start) %}
+      {% set e = today_at(time_end) %}
+      {% set n = now() %}
+      {% set in_window = (s <= e and s <= n <= e) or (s > e and (n >= s or n <= e)) %}
+      {% set on_ok = (enabler in ['', none]) or is_state(enabler, 'on') %}
+      {{ dark and in_window and on_ok }}
+
+action:
+  - repeat:
+      while:
+        - condition: template
+          value_template: >-
+            {% set el = state_attr('sun.sun', 'elevation') | float(90) %}
+            {% set dark = el < (elevation_threshold | float(0)) %}
+            {% set s = today_at(time_start) %}
+            {% set e = today_at(time_end) %}
+            {% set n = now() %}
+            {% set in_window = (s <= e and s <= n <= e) or (s > e and (n >= s or n <= e)) %}
+            {% set on_ok = (enabler in ['', none]) or is_state(enabler, 'on') %}
+            {{ dark and in_window and on_ok }}
+      sequence:
+        - alias: Random dark gap before turning the light on
+          delay: >-
+            {{ (range((min_off | int), (max_off | int) + 1) | random) * 60 }}
+
+        - alias: Bail out if the window closed during the gap (light is already off)
+          condition: template
+          value_template: >-
+            {% set el = state_attr('sun.sun', 'elevation') | float(90) %}
+            {% set dark = el < (elevation_threshold | float(0)) %}
+            {% set s = today_at(time_start) %}
+            {% set e = today_at(time_end) %}
+            {% set n = now() %}
+            {% set in_window = (s <= e and s <= n <= e) or (s > e and (n >= s or n <= e)) %}
+            {% set on_ok = (enabler in ['', none]) or is_state(enabler, 'on') %}
+            {{ dark and in_window and on_ok }}
+
+        - alias: Turn the light on
+          service: light.turn_on
+          target: !input light_target
+          data:
+            brightness_pct: !input brightness_pct
+
+        - alias: Keep it on a random time, but cut short if the window closes
+          wait_template: >-
+            {% set el = state_attr('sun.sun', 'elevation') | float(90) %}
+            {% set dark = el < (elevation_threshold | float(0)) %}
+            {% set s = today_at(time_start) %}
+            {% set e = today_at(time_end) %}
+            {% set n = now() %}
+            {% set in_window = (s <= e and s <= n <= e) or (s > e and (n >= s or n <= e)) %}
+            {% set on_ok = (enabler in ['', none]) or is_state(enabler, 'on') %}
+            {{ not (dark and in_window and on_ok) }}
+          timeout: >-
+            {{ (range((min_on | int), (max_on | int) + 1) | random) * 60 }}
+
+        - alias: Turn the light off
+          service: light.turn_off
+          target: !input light_target
+
+  - alias: Safety off when the simulation ends
+    service: light.turn_off
+    target: !input light_target

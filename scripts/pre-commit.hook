@@ -1,0 +1,18 @@
+#!/bin/bash
+# Pre-commit hook: block accidental commits of secret files.
+# Installed by scripts/setup-hooks.sh — run that after every fresh clone.
+
+BLOCKED=(".env" "secrets.yaml" ".backup-passphrase" ".rclone.conf")
+
+STAGED="$(git diff --cached --name-only)"
+
+for f in "${BLOCKED[@]}"; do
+  # Compare the final path component exactly. A substring match rejects
+  # .env-example (it contains ".env"), and anchoring the whole line instead
+  # would miss home-assistant/config/secrets.yaml.
+  if printf '%s\n' "$STAGED" | awk -F/ -v n="$f" '$NF == n { hit = 1 } END { exit !hit }'; then
+    echo "pre-commit: ERROR: refusing to commit sensitive file: ${f}"
+    echo "pre-commit: If intentional, use: git commit --no-verify (not recommended)"
+    exit 1
+  fi
+done

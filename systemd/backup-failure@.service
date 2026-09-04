@@ -1,0 +1,10 @@
+[Unit]
+Description=Report the failure of %i
+
+# Instantiated by OnFailure= in the backup units. The old system had no
+# equivalent, which is the reason it failed silently every night for months
+# without anyone noticing.
+
+[Service]
+Type=oneshot
+ExecStart=/home/mmatasic/homeserver/scripts/notify-failure.sh %i
