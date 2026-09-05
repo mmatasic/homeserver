@@ -176,28 +176,56 @@ cd /home/mmatasic/homeserver
 D=/tmp/dumps/var/backups/homeserver-dumps
 
 # Immich (PostgreSQL)
-docker compose stop immich-server immich-machine-learning
+docker-compose stop immich-server immich-machine-learning
 gunzip -c "$D/immich-postgres.sql.gz" | docker exec -i immich_postgres \
-    sh -c 'psql --username "$POSTGRES_USER" -v ON_ERROR_STOP=1 postgres'
-docker compose start immich-server immich-machine-learning
+    sh -c 'psql --username "$POSTGRES_USER" postgres'
+docker-compose start immich-server immich-machine-learning
 
 # Nextcloud (MariaDB)
-docker compose stop nextcloud
+docker-compose stop nextcloud
 gunzip -c "$D/nextcloud-mariadb.sql.gz" | docker exec -i nextcloud_db \
     sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mariadb -u root'
-docker compose start nextcloud
+docker-compose start nextcloud
 
 # Nextcloud only: reconcile the file cache with what is actually on disk
 docker exec -u www-data nextcloud php occ maintenance:repair
 docker exec -u www-data nextcloud php occ files:scan --all
 ```
 
-> `-v ON_ERROR_STOP=1` is not optional. Without it `psql` prints errors and
-> keeps going, leaving a half-restored database and exit status 0 — a restore
-> that reports success while having failed.
+> **The Immich import prints two errors. Both are expected — keep going.**
+>
+> ```
+> ERROR:  current user cannot be dropped
+> ERROR:  role "postgres" already exists
+> ```
+>
+> `pg_dumpall --clean` emits `DROP ROLE postgres` and then `CREATE ROLE
+> postgres`. The drop fails because you cannot drop the role you are connected
+> as, so the create then fails as a duplicate. Every other statement applies
+> normally. **Do not add `-v ON_ERROR_STOP=1`** — it aborts on the first of
+> these and restores nothing at all, while still looking like it tried. Any
+> error *other* than those two is a genuine problem.
 
 The Immich dump is from `pg_dumpall --clean --if-exists`, so it drops and
 recreates objects itself — restore it against the running server, not an empty one.
+
+`psql` exits 0 whether it restored everything or nothing, so the exit status is
+worthless here. Verify by counting rows:
+
+```bash
+docker exec -i immich_postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+select 'asset' as t, count(*) from asset
+union all select 'asset_face', count(*) from asset_face
+union all select 'smart_search', count(*) from smart_search;
+SQL
+
+docker exec nextcloud_db sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mariadb -u root -e "select count(*) from nextcloud.oc_filecache;"'
+```
+
+*Tested 2026-09-05:* restoring the real dumps into throwaway containers matched
+live exactly — `asset` 40679, `asset_face` 42839, `smart_search` 40591,
+`oc_filecache` 41243, with `vchord 0.3.0` and `vector 0.8.1` both intact.
 
 Full bare-metal recovery is in [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md).
 

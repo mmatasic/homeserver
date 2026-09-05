@@ -90,22 +90,26 @@ $EDITOR .env                 # fill in paths, domains and passwords
 
 bash scripts/setup-hooks.sh  # pre-commit hook that blocks committing secrets
 
-docker compose up -d
+docker-compose up -d
 ```
 
 Several relative paths in `.env` (for example `DB_DATA_LOCATION`) resolve against the Compose file,
-so run `docker compose` from the repository root.
+so run `docker-compose` from the repository root.
+
+> This server runs **Compose v1** — `docker-compose`, with a hyphen. A machine
+> rebuilt per [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) installs the v2
+> plugin instead, where every command below is spelled `docker compose`.
 
 ## Common commands
 
 ```bash
-docker compose up -d                    # start everything
-docker compose up -d <service>          # start or recreate one service
-docker compose stop                     # stop, keep containers
-docker compose down                     # stop and remove containers
-docker compose ps                       # status
-docker compose logs -f <service>        # follow logs
-docker compose pull && docker compose up -d   # update images and recreate
+docker-compose up -d                    # start everything
+docker-compose up -d <service>          # start or recreate one service
+docker-compose stop                     # stop, keep containers
+docker-compose down                     # stop and remove containers
+docker-compose ps                       # status
+docker-compose logs -f <service>        # follow logs
+docker-compose pull && docker-compose up -d   # update images and recreate
 docker image prune -f                   # reclaim space from old images
 ```
 
