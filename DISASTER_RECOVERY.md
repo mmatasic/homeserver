@@ -284,6 +284,47 @@ gunzip -c "$D/nextcloud-mariadb.sql.gz" | docker exec -i nextcloud_db \
     sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mariadb -u root'
 ```
 
+> **The Immich import prints two errors. Both are expected — keep going.**
+>
+> ```
+> ERROR:  current user cannot be dropped
+> ERROR:  role "postgres" already exists
+> ```
+>
+> `pg_dumpall --clean` emits `DROP ROLE postgres` and then `CREATE ROLE
+> postgres`. The drop fails because you cannot drop the role you are connected
+> as, so the create then fails as a duplicate. Every other statement applies
+> normally. **Do not add `-v ON_ERROR_STOP=1`** — it aborts on the first of
+> these and restores nothing at all, while still looking like it tried. Any
+> error *other* than those two is a genuine problem.
+
+**Verify before moving on.** `psql` exits 0 here whether it restored everything
+or nothing, so the exit code proves nothing. Count rows instead:
+
+```bash
+docker exec -i immich_postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+select 'asset' as t, count(*) from asset
+union all select 'asset_face', count(*) from asset_face
+union all select 'smart_search', count(*) from smart_search;
+SQL
+
+docker exec nextcloud_db sh -c \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mariadb -u root -e "select count(*) from nextcloud.oc_filecache;"'
+```
+
+Immich's smart search silently returns nothing if the vector extensions did not
+come back, so check them explicitly:
+
+```bash
+docker exec immich_postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "\dx"' \
+    | grep -E 'vchord|vector'      # both must be listed
+```
+
+*Tested 2026-09-05* by restoring the real dumps into throwaway containers: every
+count matched live exactly — `asset` 40679, `asset_face` 42839, `smart_search`
+40591, `oc_filecache` 41243 — and `vchord 0.3.0` / `vector 0.8.1` both restored.
+Use those figures as an order-of-magnitude sanity check, not as exact targets.
+
 ### 9. Start everything
 
 ```bash
