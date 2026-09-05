@@ -1,0 +1,14 @@
+[Unit]
+Description=Nightly offsite copy to Backblaze B2 (services)
+
+[Timer]
+# 05:30 — well after the 04:00 services backup, whose whole run takes minutes.
+# All three modes share one flock, so a collision fails loudly rather than
+# corrupting anything, and the OnFailure notification is the correct response:
+# something that normally takes 7 minutes would have to have run for 90.
+OnCalendar=*-*-* 05:30:00
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

@@ -37,6 +37,11 @@ export RESTIC_PASSWORD_FILE=/root/.restic-password
 export RESTIC_CACHE_DIR=/var/cache/restic
 
 DUMP_DIR=/var/backups/homeserver-dumps
+
+# Offsite (Backblaze B2). Credentials and the repo URL live outside this public
+# repository, root-only, exactly like the restic passphrase and the notifier
+# settings. See scripts/b2-credentials-example.
+OFFSITE_CONF=/root/.b2-credentials
 EXCLUDES="${COMPOSE_DIR}/scripts/restic-excludes.txt"
 
 # Left running during the outage: it is the LAN's DNS, and none of its state
@@ -108,7 +113,48 @@ if [[ "$MODE" == "photos" ]]; then
     exit 0
 fi
 
-[[ "$MODE" == "services" ]] || die "unknown mode '$MODE' (use: services|photos)"
+#############################################################################
+# offsite mode — copy the services snapshots to Backblaze B2
+#############################################################################
+# Photos are deliberately NOT copied: 359 GiB offsite costs ~$2.50/month while
+# the services set is ~$0.13. Revisit that if the photo library ever becomes
+# the thing you would most regret losing.
+#
+# This reads the local repo, so it takes the same flock as the other modes —
+# a `forget --prune` running locally while we copy would pull blobs out from
+# under us.
+if [[ "$MODE" == "offsite" ]]; then
+    [[ -r "$OFFSITE_CONF" ]] || die "$OFFSITE_CONF not readable"
+    # shellcheck source=/dev/null
+    . "$OFFSITE_CONF"
+    [[ -n "${OFFSITE_REPO:-}" ]]   || die "OFFSITE_REPO not set in $OFFSITE_CONF"
+    [[ -n "${B2_ACCOUNT_ID:-}" ]]  || die "B2_ACCOUNT_ID not set in $OFFSITE_CONF"
+    [[ -n "${B2_ACCOUNT_KEY:-}" ]] || die "B2_ACCOUNT_KEY not set in $OFFSITE_CONF"
+    export B2_ACCOUNT_ID B2_ACCOUNT_KEY
+
+    # Both repos use the same passphrase, so RESTIC_PASSWORD_FILE covers the
+    # destination and --from-password-file covers the source. One secret to
+    # protect, one secret to remember in a rebuild.
+    log "copying services snapshots offsite"
+    restic -r "$OFFSITE_REPO" \
+        --from-repo "$RESTIC_REPOSITORY" \
+        --from-password-file "$RESTIC_PASSWORD_FILE" \
+        copy --tag services
+
+    log "applying retention (offsite)"
+    restic -r "$OFFSITE_REPO" forget --tag services "${RETENTION[@]}" --prune
+
+    # Downloads all metadata from B2. Free: the allowance is 3x stored bytes
+    # per month and this is a few hundred MB against ~87 GB of headroom.
+    log "checking offsite repository"
+    restic -r "$OFFSITE_REPO" check
+
+    log "offsite copy complete"
+    restic -r "$OFFSITE_REPO" snapshots --tag services --latest 1
+    exit 0
+fi
+
+[[ "$MODE" == "services" ]] || die "unknown mode '$MODE' (use: services|photos|offsite)"
 
 #############################################################################
 # services mode

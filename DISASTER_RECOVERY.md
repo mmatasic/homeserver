@@ -33,6 +33,7 @@ already landed on disk.
 |---|---|---|
 | **restic passphrase** | password manager | The repository is unrecoverable. No reset, no vendor, no support path. |
 | Backup disk | ext4, label `backup` | No data at all — git carries configuration only. |
+| **B2 application key** | password manager, beside the passphrase | The offsite copy is unreachable. It survives the fire that takes the disk; the key must survive it too. |
 | NAS powered and reachable | `<nas-ip>:/volume1/media/` | No media library, no Immich originals. |
 | Thread/Zigbee USB stick | USB serial adapter | Zigbee and Thread devices stay offline. |
 | Router admin access | — | No static lease, no 80/443 forward. |
@@ -137,6 +138,7 @@ Also needed:
 | | Recovery |
 |---|---|
 | `/root/.restic-password` | Paste from the password manager (Scenario A step 5). |
+| `/root/.b2-credentials` | B2 key + repo URL. Recreate from `scripts/b2-credentials-example`. Needed to *read* the offsite copy, so the key must come from your password manager, not from a backup. |
 | `/root/.backup-notify.conf` | ntfy topic + HA token for failure alerts. Recreate from `scripts/backup-notify.conf-example`; a new HA token must be minted. Without it, backups fail silently again. |
 | `/etc/fstab` entries | Scenario A steps 2–3. |
 | Static IP / netplan | Values are in `LOCAL.md`, which is itself inside the backup. |
@@ -410,6 +412,10 @@ sudo restic -r /mnt/backup/restic --password-file /root/.restic-password \
 
 Record the new UUID in `LOCAL.md`.
 
+Priming from the running system is fastest, but if the live tree is also
+suspect, seed the new disk from B2 instead:
+`restic -r /mnt/backup/restic copy --from-repo "$OFFSITE_REPO"`.
+
 ---
 
 ## Scenario E — Single NAS drive failure
@@ -419,6 +425,49 @@ admin UI and let it rebuild.
 
 RAID is not a backup: it survives a dead drive, not deletion, ransomware, or
 losing the NAS. That is what the photo backups are for.
+
+---
+
+## Scenario F — Total site loss (fire, theft, flood)
+
+The server, the backup disk and the NAS are all gone at once. This is the
+scenario the offsite copy exists for, and the one where being honest about what
+does *not* come back matters most.
+
+**What survives**
+
+| | |
+|---|---|
+| B2 repository | `services` snapshots — configs, `.env`, HA `.storage/`, the Zigbee network key, database dumps |
+| Password manager | the restic passphrase **and** the B2 application key |
+| GitHub | the public repository — configuration only, a strict subset of the above |
+
+**What does not**
+
+- **The Immich photo library.** 359 GiB, local-only by cost decision. Gone.
+- **The media library.** Never backed up, by design — re-acquirable.
+- Anything on the NAS outside `/mnt/data/Pictures*`.
+
+**Procedure.** Identical to Scenario A, except that steps 3–6 source from B2
+rather than the USB disk. You do not need a backup disk to begin; attach one
+later and prime it per Scenario D.
+
+```bash
+# after Scenario A steps 1 and 4 (OS installed, restic installed):
+sudo sh -c 'umask 077; cat > /root/.restic-password'    # paste passphrase, Ctrl-D
+sudo install -m 600 /dev/null /root/.b2-credentials
+sudo nano /root/.b2-credentials                         # keyID, applicationKey, OFFSITE_REPO
+
+sudo bash -c '
+  set -a; . /root/.b2-credentials; set +a
+  restic -r "$OFFSITE_REPO" --password-file /root/.restic-password snapshots
+  restic -r "$OFFSITE_REPO" --password-file /root/.restic-password \
+    restore latest --tag services --target /
+'
+```
+
+Then continue at Scenario A step 7. Until a local disk is primed, B2 is your
+only copy — treat that as an emergency, not a steady state.
 
 ---
 

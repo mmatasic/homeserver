@@ -94,21 +94,63 @@ text and both of its SQLite databases are regenerable and already excluded.
 ## Schedule
 
 ```
-02:00  homeserver-restic-photos.timer  →  photos, no outage
-04:00  homeserver-restic.timer         →  services, brief outage
+02:00  homeserver-restic-photos.timer   →  photos, no outage
+04:00  homeserver-restic.timer          →  services, brief outage
+05:30  homeserver-restic-offsite.timer  →  services copied to B2, no outage
 ```
 
-Both timers use `Persistent=true`, so a run missed while the server was off fires
-on next boot rather than being skipped.
+All three timers use `Persistent=true`, so a run missed while the server was off
+fires on next boot rather than being skipped.
 
-The two runs share a `flock`, so they can never overlap on the repository. Photos
-go first because that run is far longer.
+All three runs share a `flock`, so they can never overlap on the repository.
+Photos go first because that run is by far the longest; offsite goes last
+because it reads what the other two produced.
 
 On failure, `OnFailure=backup-failure@%n.service` fires
-[`scripts/notify-failure.sh`](scripts/notify-failure.sh). **Configure a channel in
-that script and test it deliberately** — an untested failure notification is the
-same as no notification, which is exactly how the old system stayed broken for
-months.
+[`scripts/notify-failure.sh`](scripts/notify-failure.sh), which pushes to ntfy
+and to Home Assistant. Channel settings live in `/root/.backup-notify.conf`
+(root-only, outside this public repo — see `scripts/backup-notify.conf-example`).
+Verified working 2026-09-05. An untested failure notification is the same as no
+notification, which is exactly how the old system stayed broken for months.
+
+---
+
+## Offsite copy (Backblaze B2)
+
+`restic-backup.sh offsite` runs `restic copy --tag services` from the local
+repository into a B2 bucket. It reads the local repo only — no downtime, no
+docker, no NAS.
+
+**Photos are deliberately not copied.** 359 GiB offsite costs ~$2.50/month
+against ~$0.20 for the services set. That is a decision, not an oversight: if a
+fire takes the house, the photo library is gone. Revisit it when that trade stops
+feeling right — the mode already exists, it is one tag away.
+
+| | |
+|---|---|
+| Repository | `b2:<bucket>:homeserver`, set in `/root/.b2-credentials` |
+| Credentials | `/root/.b2-credentials`, 0600 root-only, **not** in any backup |
+| Passphrase | the same one as the local repo — one secret to protect |
+| Contents | `--tag services` snapshots only |
+| Retention | the same 7 daily / 4 weekly / 6 monthly, applied on the B2 side |
+| Verification | `restic check` runs against B2 after every copy |
+
+**The two repositories share chunker parameters.** The B2 repo was initialised
+with `--copy-chunker-params --from-repo`, so both chunk data identically and
+`copy` transfers only blobs B2 does not already hold. This can only be set at
+`init`. If you ever recreate the offsite repo, pass it again — without it every
+block re-chunks and you re-upload everything.
+
+> **Caps, not quotas, are what will bite you.** B2's Caps & Alerts page is
+> denominated in **dollars per day**, and a new account defaults the storage cap
+> to `$0` — which 403s every upload past the 10 GB free tier with
+> `storage cap exceeded`, no matter what payment method is on file. Roughly,
+> daily cap x 30 = your monthly ceiling. Ours is $0.15/day (~$4.50/month, ~647 GB)
+> against real usage of ~$0.20/month.
+
+Costs at this size: storage ~$0.20/month, uploads free, all standard API calls
+free, and egress free up to 3x stored bytes per month — so even a full restore
+of the offsite copy costs nothing.
 
 ---
 
@@ -228,6 +270,32 @@ live exactly — `asset` 40679, `asset_face` 42839, `smart_search` 40591,
 `oc_filecache` 41243, with `vchord 0.3.0` and `vector 0.8.1` both intact.
 
 Full bare-metal recovery is in [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md).
+
+---
+
+### Restore from the offsite copy
+
+Every command above works against B2 — only the repository changes. Load the
+credentials, then use `$OFFSITE_REPO` wherever `/mnt/backup/restic` appears:
+
+```bash
+sudo bash -c '
+  set -a; . /root/.b2-credentials; set +a
+  restic -r "$OFFSITE_REPO" --password-file /root/.restic-password snapshots
+'
+```
+
+For longer work, get a root shell once rather than wrapping every command:
+
+```bash
+sudo -i
+set -a; . /root/.b2-credentials; set +a
+restic -r "$OFFSITE_REPO" --password-file /root/.restic-password \
+  restore latest --tag services --target /
+```
+
+The offsite repository holds **services only** — `--tag photos` against B2
+returns nothing, by design. See the offsite section above.
 
 ---
 

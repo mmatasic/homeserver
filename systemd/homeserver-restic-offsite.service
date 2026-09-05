@@ -1,0 +1,15 @@
+[Unit]
+Description=Homeserver backup — offsite copy to Backblaze B2
+Documentation=file:///home/mmatasic/homeserver/BACKUP.md
+# Only the local repo is needed as a source: no docker, no NAS, no downtime.
+RequiresMountsFor=/mnt/backup
+Wants=network-online.target
+After=network-online.target
+OnFailure=backup-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/mmatasic/homeserver/scripts/restic-backup.sh offsite
+# The first run pushes ~29 GB over a home uplink. Subsequent runs move only the
+# nightly delta, but the timeout has to survive the seed.
+TimeoutStartSec=8h
