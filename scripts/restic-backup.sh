@@ -29,6 +29,13 @@ NAS_MOUNT=/mnt/data
 export RESTIC_REPOSITORY=/mnt/backup/restic
 export RESTIC_PASSWORD_FILE=/root/.restic-password
 
+# systemd starts services with no $HOME, and restic aborts outright when it
+# cannot locate a cache directory. Interactive `sudo restic` works because sudo
+# sets HOME=/root, so this breaks ONLY under the timer — the one context nobody
+# is watching. Setting it explicitly also puts the cache where a root-run system
+# service's cache belongs, and keeps the script correct under cron or a bare sh.
+export RESTIC_CACHE_DIR=/var/cache/restic
+
 DUMP_DIR=/var/backups/homeserver-dumps
 EXCLUDES="${COMPOSE_DIR}/scripts/restic-excludes.txt"
 
@@ -50,6 +57,18 @@ die()  { printf '%s  FATAL: %s\n' "$(date -Is)" "$*" >&2; exit 1; }
 # --- guards ----------------------------------------------------------------
 [[ $EUID -eq 0 ]] || die "must run as root"
 command -v restic >/dev/null 2>&1 || die "restic not found in PATH"
+
+# Compose v1 (`docker-compose`) and v2 (`docker compose`) are both in the wild:
+# this server runs v1, while DISASTER_RECOVERY.md installs v2 on a fresh box.
+# Detect instead of assuming. Assuming v2 is what made this script's first real
+# run die with a misleading "is the stack up?" while 26 containers were healthy.
+if docker compose version >/dev/null 2>&1; then
+    COMPOSE=(docker compose)
+elif command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE=(docker-compose)
+else
+    die "neither 'docker compose' nor 'docker-compose' is available"
+fi
 [[ -s "$RESTIC_PASSWORD_FILE" ]] || die "$RESTIC_PASSWORD_FILE missing or empty"
 [[ -r "$EXCLUDES" ]] || die "exclude file $EXCLUDES not readable"
 
@@ -101,8 +120,8 @@ restore_stack() {
     if [[ -n "$STOPPED_SERVICES" ]]; then
         log "restarting services"
         # shellcheck disable=SC2086
-        docker compose start $STOPPED_SERVICES \
-            || log "WARNING: 'docker compose start' failed — CHECK THE STACK MANUALLY"
+        "${COMPOSE[@]}" start $STOPPED_SERVICES \
+            || log "WARNING: compose start failed — CHECK THE STACK MANUALLY"
     fi
 }
 trap restore_stack EXIT
@@ -141,14 +160,23 @@ done
 # --- 2. quiesce the stack --------------------------------------------------
 # Only services that are actually running, so anything you deliberately
 # stopped stays stopped when we start things back up.
-RUNNING="$(docker compose ps --services --status running 2>/dev/null \
-           | grep -vx "$KEEP_UP" | tr '\n' ' ' || true)"
-[[ -n "${RUNNING// /}" ]] || die "no running services found — is the stack up?"
+# Asked of the daemon by compose label rather than through `compose ps`: the
+# flags for filtering by status differ between v1 and v2, but the labels do not.
+# stderr is deliberately NOT discarded here — discarding it is exactly what
+# disguised a missing compose binary as "the stack is down".
+PROJECT="$(basename "$COMPOSE_DIR")"
+RUNNING="$(docker ps --filter "label=com.docker.compose.project=${PROJECT}" \
+                     --format '{{.Label "com.docker.compose.service"}}' \
+           | sort -u | grep -vx "$KEEP_UP" | tr '\n' ' ')" || true
+
+if [[ -z "${RUNNING// /}" ]]; then
+    die "no running services for compose project '${PROJECT}' — projects seen: $(docker ps --format '{{.Label "com.docker.compose.project"}}' | sort -u | tr '\n' ' ')"
+fi
 
 log "stopping services (keeping ${KEEP_UP} up)"
 STOPPED_SERVICES="$RUNNING"
 # shellcheck disable=SC2086
-docker compose stop $RUNNING
+"${COMPOSE[@]}" stop $RUNNING
 
 # --- 3. snapshot -----------------------------------------------------------
 log "running restic backup"
@@ -159,7 +187,7 @@ restic backup --tag services --exclude-caches \
 # --- 4. bring the stack back immediately, before the slow maintenance ------
 log "restarting services"
 # shellcheck disable=SC2086
-docker compose start $RUNNING
+"${COMPOSE[@]}" start $RUNNING
 STOPPED_SERVICES=""
 
 # --- 5. retention and integrity (outage is already over) -------------------

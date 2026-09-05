@@ -2,7 +2,7 @@
 # Pre-commit hook: block accidental commits of secret files.
 # Installed by scripts/setup-hooks.sh — run that after every fresh clone.
 
-BLOCKED=(".env" "secrets.yaml" ".backup-passphrase" ".rclone.conf")
+BLOCKED=(".env" "secrets.yaml" ".backup-passphrase" ".rclone.conf" ".backup-notify.conf")
 
 STAGED="$(git diff --cached --name-only)"
 

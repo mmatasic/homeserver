@@ -85,6 +85,18 @@ sudo systemctl restart systemd-resolved
 ss -ulnp | grep ':53 '          # must print nothing
 ```
 
+**Raise the inotify limits.** `max_user_instances` defaults to 128, which 26
+containers plus Home Assistant's config watching exhaust. The symptom is
+misleading: systemd reports `No space left on device` when adding cgroup
+watches while the disks are nearly empty.
+
+```bash
+printf 'fs.inotify.max_user_instances=1024\nfs.inotify.max_user_watches=524288\n' \
+  | sudo tee /etc/sysctl.d/60-inotify.conf
+sudo sysctl --system
+cat /proc/sys/fs/inotify/max_user_instances   # 1024
+```
+
 Also needed:
 
 - **dbus running** — `matter-server` bind-mounts `/run/dbus` for Bluetooth
@@ -125,6 +137,7 @@ Also needed:
 | | Recovery |
 |---|---|
 | `/root/.restic-password` | Paste from the password manager (Scenario A step 5). |
+| `/root/.backup-notify.conf` | ntfy topic + HA token for failure alerts. Recreate from `scripts/backup-notify.conf-example`; a new HA token must be minted. Without it, backups fail silently again. |
 | `/etc/fstab` entries | Scenario A steps 2–3. |
 | Static IP / netplan | Values are in `LOCAL.md`, which is itself inside the backup. |
 | `model-cache` Docker volume | Immich ML models; re-downloaded automatically on first start. Bandwidth, not data loss. |

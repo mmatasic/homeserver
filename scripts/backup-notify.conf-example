@@ -1,0 +1,25 @@
+# Example for /root/.backup-notify.conf — sourced by scripts/notify-failure.sh.
+#
+# Copy to the server as root, 0600. It lives in /root, NOT in this repo:
+# the repo is public, and both values below are secrets.
+#
+#   sudo install -m 600 /dev/null /root/.backup-notify.conf
+#   sudo nano /root/.backup-notify.conf
+#
+# Not captured by any backup — /root is outside the snapshot. Recreate it by
+# hand after a rebuild, or failure alerts go silently missing. Listed in
+# DISASTER_RECOVERY.md step 0.8 for that reason.
+
+# --- ntfy ------------------------------------------------------------------
+# Any unguessable string; there is no registration. Subscribe to the same topic
+# in the ntfy app. Anyone who learns the name can read it, so it is fine for
+# "a backup failed" and never for backup contents.
+NTFY_TOPIC=""            # e.g. hs-backup-9f3a1c7e2b
+
+# --- Home Assistant --------------------------------------------------------
+# Token: HA profile -> Security -> Long-lived access tokens -> Create token.
+# It is shown once. Grants full API access, hence 0600 and root-only.
+# HA uses network_mode: host, so 127.0.0.1 works from the host.
+HA_URL="http://127.0.0.1:8123"
+HA_TOKEN=""
+HA_NOTIFY_SERVICE="notify.mobile_app_samsung_s23"

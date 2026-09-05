@@ -19,12 +19,32 @@ BODY="${UNIT} FAILED on ${HOST} at ${WHEN}
 
 ${TAIL}"
 
-# --- channel 1: ntfy -------------------------------------------------------
-# Set a long random topic and subscribe to it in the ntfy app. Topics on the
-# public server are readable by anyone who knows the name, so treat it as
-# unguessable-but-not-secret: fine for "a backup failed", never for contents.
-NTFY_TOPIC=""     # e.g. hs-backup-9f3a1c7e2b
+# --- configuration ---------------------------------------------------------
+# Both channel settings are secrets in practice: an HA token grants full API
+# access, and an ntfy topic is readable by anyone who knows its name. THIS FILE
+# IS TRACKED IN A PUBLIC REPO, so they must never be written here. They live in
+# a root-only file outside the repo, the same convention as the restic
+# passphrase in /root/.restic-password.
+#
+# Create it from scripts/backup-notify.conf-example:
+#   sudo install -m 600 /dev/null /root/.backup-notify.conf
+CONF=/root/.backup-notify.conf
 
+NTFY_TOPIC=""
+HA_URL=""
+HA_TOKEN=""
+HA_NOTIFY_SERVICE="notify.mobile_app_samsung_s23"
+
+if [[ -r "$CONF" ]]; then
+    # shellcheck source=/dev/null
+    . "$CONF"
+else
+    logger -t backup-failure "no readable ${CONF} — journal and marker file only"
+fi
+
+# --- channel 1: ntfy -------------------------------------------------------
+# Independent of this machine's own services, which is the point: it still
+# reaches you when Home Assistant is the thing that is broken.
 if [[ -n "$NTFY_TOPIC" ]]; then
     curl -fsS -m 20 \
         -H "Title: Backup failed on ${HOST}" \
@@ -35,23 +55,35 @@ if [[ -n "$NTFY_TOPIC" ]]; then
         || logger -t backup-failure "ntfy notification failed"
 fi
 
-# --- channel 2: Home Assistant webhook -------------------------------------
-# Alternative if you would rather keep it on your own infrastructure: create an
-# automation with a webhook trigger, then set the URL here. Uses the container
-# name over the docker network, so it works without a public hostname.
-HA_WEBHOOK=""     # e.g. http://homeassistant:8123/api/webhook/<webhook-id>
+# --- channel 2: Home Assistant push ----------------------------------------
+# Calls the notify service straight over the REST API. Home Assistant runs with
+# network_mode: host, so 127.0.0.1:8123 reaches it from the host. Done this way
+# rather than with a webhook trigger because a webhook needs its id stored in
+# automations.yaml, which is public.
+#
+# python3 builds the payload: BODY is multi-line journal output and has to be
+# JSON-escaped properly. python3 is part of the Ubuntu base system.
+if [[ -n "$HA_URL" && -n "$HA_TOKEN" ]]; then
+    SVC_PATH="$(printf '%s' "$HA_NOTIFY_SERVICE" | tr '.' '/')"
+    PAYLOAD="$(python3 -c 'import json,sys; print(json.dumps({"title": sys.argv[1], "message": sys.argv[2]}))' \
+        "Backup failed on ${HOST}" "$BODY" 2>/dev/null)"
 
-if [[ -n "$HA_WEBHOOK" ]]; then
-    curl -fsS -m 20 -X POST \
-        -H 'Content-Type: application/json' \
-        -d "$(printf '{"unit":"%s","host":"%s","when":"%s"}' "$UNIT" "$HOST" "$WHEN")" \
-        "$HA_WEBHOOK" >/dev/null \
-        || logger -t backup-failure "HA webhook notification failed"
+    if [[ -n "$PAYLOAD" ]]; then
+        curl -fsS -m 20 -X POST \
+            -H "Authorization: Bearer ${HA_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d "$PAYLOAD" \
+            "${HA_URL}/api/services/${SVC_PATH}" >/dev/null \
+            || logger -t backup-failure "HA notification failed"
+    else
+        logger -t backup-failure "HA notification skipped: could not build payload"
+    fi
 fi
 
 # --- always: journal + marker file ----------------------------------------
 # The marker is what to check when you want to know "did anything fail while I
-# was away" without reading the journal.
+# was away" without reading the journal. It is the one channel that cannot
+# itself fail, so it stays even once the push channels work.
 logger -t backup-failure "${UNIT} failed on ${HOST}"
 mkdir -p /var/lib/homeserver
 printf '%s  %s failed\n' "$WHEN" "$UNIT" >> /var/lib/homeserver/backup-failures.log
