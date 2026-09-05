@@ -191,7 +191,7 @@ Reconnect the hardware the stack expects:
 
 ```bash
 sudo mkdir -p /mnt/data
-echo '<nas-ip>:/volume1/media/ /mnt/data nfs defaults,_netdev,noatime,nofail 0 0' \
+echo '<nas-ip>:/volume1/media/ /mnt/data nfs _netdev,nofail,noatime,x-systemd.mount-timeout=30 0 0' \
   | sudo tee -a /etc/fstab
 sudo mount -a
 findmnt /mnt/data
