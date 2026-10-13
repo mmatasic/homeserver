@@ -24,7 +24,9 @@ and home automation, behind a single reverse proxy with automatic TLS.
 |---|---|
 | Sonarr / Radarr / Lidarr | TV, film and music tracking and downloading |
 | Bazarr | Subtitle auto-download for Sonarr and Radarr |
+| Sportarr | Sports event tracking and downloading, with a Jellyfin metadata plugin |
 | Jackett | Indexer proxy feeding the \*arr stack |
+| FlareSolverr | Solves Cloudflare challenges for Jackett's protected indexers |
 | Transmission | BitTorrent client |
 | Jellyseerr | Request front-end for Jellyfin users |
 
@@ -55,8 +57,11 @@ Three patterns, deliberately:
 | Pattern | Services | Notes |
 |---|---|---|
 | **Reverse proxy only** — no host port | Jellyfin, Navidrome, Immich, Actual, Nextcloud, Heimdall | Reached over HTTPS at a subdomain. SWAG resolves them **by container name** on the Compose network, so no port needs publishing |
-| **LAN only** — host port published | Sonarr, Radarr, Lidarr, Jackett, Bazarr, Jellyseerr, Audiobookshelf, Transmission, Beets, Pi-hole admin, Zigbee2MQTT | Admin interfaces, reachable on the LAN only |
+| **LAN only** — host port published | Sonarr, Radarr, Lidarr, Sportarr, Jackett, Bazarr, Jellyseerr, Audiobookshelf, Transmission, Beets, Pi-hole admin, Zigbee2MQTT | Admin interfaces, reachable on the LAN only |
 | **Host networking** | Home Assistant, Matter Server, OpenThread Border Router | Required for mDNS, Thread and Bluetooth |
+
+FlareSolverr sits outside all three: it has no port and no proxy conf, because only Jackett calls
+it, by container name (`http://flaresolverr:8191`).
 
 Adding a service to the first group means dropping its `ports:` entry and adding a proxy conf to
 SWAG — not binding it to `127.0.0.1`, which SWAG could not reach from its own container.
@@ -79,6 +84,70 @@ home-assistant/config/      HA configuration — YAML is tracked, runtime state 
 `DATA` in `.env` points at wherever those per-service directories live; in the default layout that
 is this repository's own directory. `MEDIA` points at the media library, typically a NAS mount.
 
+## Host requirements
+
+The media library lives on a NAS mounted at `MEDIA` (`/mnt/data` in the default layout). That mount
+is a hard prerequisite for the stack, not a convenience — **it must be mounted before any container
+starts**.
+
+### The mountpoint must be empty and immutable
+
+Docker creates missing bind-mount sources automatically. If the NAS is not mounted when the stack
+comes up, every `${MEDIA}/...` bind in `docker-compose.yml` is silently created as an empty
+directory on the root disk. The media services then start and serve an *empty library*, while
+Transmission and Immich write to local storage. Nothing errors, and the \*arr apps may treat the
+library as missing and act on it.
+
+Seal the mountpoint so that failure is loud instead:
+
+```bash
+sudo umount /mnt/data          # the directory must be empty and unmounted
+sudo chattr +i /mnt/data       # immutable — nothing can be created inside it
+sudo mount /mnt/data           # mounting over an immutable directory still works
+```
+
+With the flag set, a failed mount makes the affected containers fail to start with a visible
+`EPERM` instead of quietly running against the root disk. Docker itself still starts, so Pi-hole
+keeps serving LAN DNS and Home Assistant stays up.
+
+This is why `RequiresMountsFor=/mnt/data` on `docker.service` is *not* used: it is the stricter
+guard, but it takes the whole stack — including LAN DNS — down every time the NAS is slow.
+
+### fstab options
+
+```
+<nas-ip>:/volume1/media/ /mnt/data nfs _netdev,nofail,noatime,x-systemd.mount-timeout=90 0 0
+```
+
+- `nofail` keeps a headless box booting when the NAS is unreachable. It is safe **only** in
+  combination with the immutable mountpoint above — on its own it is what turns an unreachable NAS
+  into a silent fallback onto local disk.
+- `mount-timeout` must exceed cold NFSv4 session setup, which on this NAS takes around 30 seconds.
+  A *warm* remount is instant, so timing a remount while another mount to the same server is live
+  measures nothing — unmount, wait out the lease (~2 min), then test.
+- Do **not** add `x-systemd.automount` to this entry. autofs makes the path always look mounted,
+  which defeats the `mountpoint -q` guard in [`scripts/restic-backup.sh`](scripts/restic-backup.sh)
+  and trades a visible failure for an invisible one in the backups.
+
+### Verifying
+
+```bash
+findmnt /mnt/data              # must show the NFS source, not just the path
+lsattr -d /mnt/data            # expect the `i` flag
+```
+
+To inspect what is hidden *underneath* the mountpoint, without unmounting anything:
+
+```bash
+sudo mkdir -p /mnt/rootcheck && sudo mount --bind / /mnt/rootcheck
+sudo du -sh /mnt/rootcheck/mnt/data
+sudo umount /mnt/rootcheck
+```
+
+Anything larger than a handful of empty directories is data written to the root disk while the NAS
+was detached, shadowed by the current mount. Symptoms to recognise: empty or shrinking libraries in
+Jellyfin and the \*arr apps, Immich reporting external assets offline, and root-disk usage climbing.
+
 ## Getting started
 
 ```bash
@@ -89,6 +158,8 @@ chmod 600 .env
 $EDITOR .env                 # fill in paths, domains and passwords
 
 bash scripts/setup-hooks.sh  # pre-commit hook that blocks committing secrets
+
+findmnt /mnt/data            # the NAS must be mounted first - see Host requirements
 
 docker-compose up -d
 ```

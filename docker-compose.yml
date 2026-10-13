@@ -59,6 +59,21 @@ services:
     ports:
       - 6767:6767
     restart: unless-stopped
+  sportarr:
+    container_name: sportarr
+    image: 'sportarr/sportarr:latest'
+    restart: unless-stopped
+    ports:
+      - '1867:1867'
+    environment:
+      - 'PUID=${UID}'
+      - 'PGID=${GID}'
+      - 'TZ=${TZ}'
+    volumes:
+      - '/etc/localtime:/etc/localtime:ro'
+      - '${DATA}/sportarr:/config'
+      - '${MEDIA}/Sport:/sports'
+      - '${MEDIA}/Downloads:/downloads'
   jackett:
     container_name: jackett
     image: 'linuxserver/jackett:latest'
@@ -72,6 +87,14 @@ services:
     volumes:
       - '/etc/localtime:/etc/localtime:ro'
       - '${DATA}/jackett:/config'
+  flaresolverr:
+    container_name: flaresolverr
+    image: 'ghcr.io/flaresolverr/flaresolverr:latest'
+    restart: unless-stopped
+    # No host port: only Jackett uses it, via http://flaresolverr:8191 on the docker network.
+    environment:
+      - 'LOG_LEVEL=info'
+      - 'TZ=${TZ}'
   heimdall:
     image: 'lscr.io/linuxserver/heimdall:latest'
     container_name: heimdall
@@ -118,8 +141,8 @@ services:
       - '${MEDIA}/Serije:/data/tvshows'
       - '${MEDIA}/Music:/data/music'
       - '${MEDIA}/Crtici:/data/kids'
-      - '${MEDIA}/Misc:/data/misc'
       - '${MEDIA}/MusicVideos:/data/music-videos'
+      - '${MEDIA}/Sport:/data/sports'
     devices:
       - /dev/dri/renderD128:/dev/dri/renderD128
       - /dev/dri/card0:/dev/dri/card0
@@ -156,8 +179,6 @@ services:
      - '${DATA}/beets:/config'
      - '${MEDIA}/Music:/music'
      - '${MEDIA}/Downloads:/downloads'
-   ports:
-     - 8337:8337
    restart: unless-stopped
      #command: sh -c "apk add --no-cache build-base python3-dev cmake && pip install 'beets[autobpm]' && beets"
   actual-server:
