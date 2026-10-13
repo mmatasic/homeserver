@@ -1,6 +1,6 @@
-plugins: fetchart embedart convert scrub replaygain lastgenre chroma web duplicates smartplaylist mbsync discogs fromfilename musicbrainz
+plugins: fetchart embedart convert scrub replaygain lastgenre chroma web duplicates smartplaylist mbsync discogs fromfilename musicbrainz lyrics
 directory: /music
-library: /music/beetsmusiclibrary.blb
+library: /config/beetsmusiclibrary.blb
 replace:
     '[\\/]': _
     '^\.': _
@@ -59,7 +59,9 @@ import:
             missing_tracks: 0.0
 
 lyrics:
-    force: no  
+    force: no
+    synced: yes
+    sources: [lrclib]
 
 lastgenre:
     auto: yes
@@ -75,7 +77,7 @@ fetchart:
     auto: yes
     
 replaygain:
-    auto: no
+    auto: yes
     backend: ffmpeg
 
 scrub:
@@ -91,15 +93,13 @@ smartplaylist:
     forward_slash: no
     playlists:
         - name: sve_domace.m3u8 
-          query: 'country::"HR|YU|SI|BA|RS|CS|MK|Croatia|Yougoslavia|Slovenia|Serbia" ^genre:Kids'
+          query: 'country::"HR|YU|SI|BA|RS|CS|MK|Croatia|Yougoslavia|Slovenia|Serbia" ^genres:Kids'
         - name: auto_running_rock_150.m3u8
-          query: 'bpm:145..154  "genre::(rock|Rock|metal|Metal|Punk|punk)" moods_mirex:Cluster5' 
+          query: 'bpm:145..154  "genres::(rock|Rock|metal|Metal|Punk|punk)"'
         - name: auto_running_rock_160.m3u8
-          query: 'bpm:155..164  "genre::(rock|Rock|metal|Metal|Punk|punk)" moods_mirex:Cluster5' 
+          query: 'bpm:155..164  "genres::(rock|Rock|metal|Metal|Punk|punk)"'
         - name: auto_running_rock_170.m3u8
-          query: 'bpm:165..174  "genre::(rock|Rock|metal|Metal|Punk|punk)" moods_mirex:Cluster5' 
+          query: 'bpm:165..174  "genres::(rock|Rock|metal|Metal|Punk|punk)"'
         - name: auto_running_rock_180.m3u8
-          query: 'bpm:175..184  "genre::(rock|Rock|metal|Metal|Punk|punk)" moods_mirex:Cluster5' 
-        - name: auto_danceable_happy.m3u8
-          query: 'danceable:0.9.. mood_happy:0.9..'
+          query: 'bpm:175..184  "genres::(rock|Rock|metal|Metal|Punk|punk)"'
 
