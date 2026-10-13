@@ -12,6 +12,7 @@ beets/.cache/*
 beets/.*history
 beets/beets.sh
 beets/*.pickle
+beets/*.blb*
 
 # Service data/runtime directories
 deemix/
@@ -27,6 +28,7 @@ navidrome/
 pihole/
 radarr/
 sonarr/
+sportarr/
 swag/
 transmission/
 yacht/
@@ -77,6 +79,11 @@ beets/library.txt
 # Home Assistant — large/generated, restore via HACS after recovery
 home-assistant/config/custom_components/
 home-assistant/config/www/
+
+# Backup diagnostics output — scripts/backup-diagnose.sh writes the hostname,
+# LAN addresses, repository IDs and the offsite bucket into this file. The
+# script itself is tracked; its output never is.
+.backup-diagnose.out
 
 # Operational docs — kept local. This repo is PUBLIC.
 # SECURITY_AUDIT.md names live unpatched issues against a publicly-resolvable

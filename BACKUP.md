@@ -79,7 +79,7 @@ dump is worse than a missing one, because it looks like success.
 > LF to CRLF and silently corrupts the gzip stream. Immich's own documentation
 > gets this wrong.
 
-**SQLite** — used by Sonarr, Radarr, Lidarr, Bazarr, Jellyfin, Navidrome,
+**SQLite** — used by Sonarr, Radarr, Lidarr, Sportarr, Bazarr, Jellyfin, Navidrome,
 Audiobookshelf, Actual, Jellyseerr and Home Assistant. Copying a live WAL-mode
 database risks a torn snapshot, so the stack is stopped for the duration of the
 snapshot. Since an incremental run reads almost nothing, the outage is well under
@@ -175,6 +175,39 @@ df -h /mnt/backup
 sudo systemctl start homeserver-restic.service
 journalctl -u homeserver-restic.service -f
 ```
+
+### When a run has failed
+
+`scripts/backup-diagnose.sh` collects the whole picture in one pass, so a
+post-mortem does not depend on remembering which of eight places to look:
+
+```bash
+sudo scripts/backup-diagnose.sh              # yesterday onwards
+sudo scripts/backup-diagnose.sh '2 days ago' # anything journalctl --since takes
+```
+
+It gathers the failure marker log, the three units' states and journals, the
+timer list, the notifier's own log, both mount checks with free space, kernel
+disk/USB errors, the snapshot list, and any leftover repository locks. It is
+read-only throughout — journal reads, `df`, and `restic --no-lock`.
+
+Output goes to `.backup-diagnose.out` in this directory as well as to the
+terminal. That directory is NFS-exported, so the report can be read from the
+workstation without copying anything back — which matters when the thing you
+are diagnosing is the server.
+
+**The output is not publishable.** It contains the hostname, LAN addresses,
+repository IDs and the offsite bucket name. It is gitignored and listed in the
+pre-commit hook's blocked set; the script is tracked, its output never is.
+
+What the sections are usually telling you:
+
+| Symptom in the report | Cause |
+|---|---|
+| `another restic-backup run is already in progress` | A previous mode still holds `/var/lock/restic-backup.lock`. All three share it and `flock -n` fails rather than waiting, so an overrunning 02:00 photos run kills the 04:00 services run outright. |
+| `/mnt/backup is not mounted` | The USB disk did not enumerate. It is mounted `nofail`, so the server boots happily without it; check the kernel section. |
+| Repository locks listed with no run active | A killed run left a stale lock, and every later run fails until `restic unlock` clears it. |
+| Unit never ran at all | Check the timer list — `Persistent=true` should have caught it up after downtime. |
 
 ---
 
