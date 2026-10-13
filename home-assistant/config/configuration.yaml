@@ -8,6 +8,7 @@ frontend:
 
 automation: !include automations.yaml
 automation alarm: !include alarm.yaml
+automation wake_pc: !include wake_pc.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
 template: !include template.yaml
@@ -33,3 +34,7 @@ input_number:
     step: 0.05
 
 alarm_control_panel: !include alarm_panel.yaml
+
+# Provides the wake_on_lan.send_magic_packet action
+wake_on_lan:
+

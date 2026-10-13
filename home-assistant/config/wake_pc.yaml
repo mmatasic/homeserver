@@ -1,0 +1,24 @@
+# Kept out of automations.yaml: the UI editor can't load files that use !secret.
+- id: wake_sunshine_pc
+  alias: Wake Sunshine PC
+  description: Send a WoL magic packet to the Sunshine PC when button 1 of the BILRESA
+    dual button dnevna is single-pressed
+  triggers:
+  - trigger: state
+    entity_id: event.dnevna_bilresa_dual_button_dnevna_button_1
+    not_from:
+    - unknown
+    - unavailable
+    not_to:
+    - unknown
+    - unavailable
+  conditions:
+  - condition: template
+    value_template: '{{ trigger.to_state.attributes.event_type == ''multi_press_1''
+      }}'
+  actions:
+  - action: wake_on_lan.send_magic_packet
+    data:
+      mac: !secret sunshine_pc_mac
+      broadcast_address: !secret sunshine_pc_broadcast
+  mode: single
